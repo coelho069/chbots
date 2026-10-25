@@ -23,6 +23,11 @@ export interface McpToolDef {
   name: string
   description: string
   inputSchema: Record<string, unknown>
+  /** Localized presentation metadata; never sent to an LLM tool schema. */
+  descriptionPtBr?: string
+  inputSchemaPtBr?: Record<string, unknown>
+  translationStatus?: 'translating' | 'translated' | 'original'
+  translationError?: string
 }
 
 export interface McpServerInfo {

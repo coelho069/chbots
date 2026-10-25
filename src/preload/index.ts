@@ -130,6 +130,7 @@ const api: PilotosApi = {
     restart: (name) => invoke(c.mcpRestart, name),
     callTool: (serverName, toolName, args) => invoke(c.mcpCallTool, serverName, toolName, args),
     translateTool: (toolName, description) => invoke(c.mcpTranslateTool, toolName, description),
+    retranslateAll: () => invoke(c.mcpRetranslateAll),
     importConfig: () => invoke(c.mcpImport),
     approvalRespond: (requestId, approved) => invoke(c.mcpApprovalRespond, requestId, approved),
     getApprovals: (agentId) => invoke(c.mcpGetApprovals, agentId),

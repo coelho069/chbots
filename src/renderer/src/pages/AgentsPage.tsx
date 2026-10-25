@@ -5,6 +5,7 @@ import { CloseButton, useCloseHandler } from '../CloseContext'
 import { confirmUnsaved, sameFields } from '../closeCurrent'
 import { useToast } from '../toast'
 import { getMcpDescricaoPtBR } from '@shared/mcpDescricoesPtBR'
+import { McpTranslatedDescription } from '../components/McpTranslatedDescription'
 
 const agentFields: (keyof AgentInput)[] = ['name', 'color', 'systemPrompt', 'providerId', 'model', 'temperature', 'usarCache', 'mcpTools']
 
@@ -43,8 +44,6 @@ export function AgentsPage({ agents, providers, draft, onDraftUsed, onChanged, o
   const [saving, setSaving] = useState(false)
   const [delCfg, setDelCfg] = useState<DelegationConfig | null>(null)
   const [mcpServers, setMcpServers] = useState<McpServerInfo[]>([])
-  const [translatedMcpDescriptions, setTranslatedMcpDescriptions] = useState<Record<string, string>>({})
-  const [translatingMcpTool, setTranslatingMcpTool] = useState<string | null>(null)
 
   useEffect(() => {
     if (draft) onDraftUsed?.()
@@ -142,19 +141,6 @@ export function AgentsPage({ agents, providers, draft, onDraftUsed, onChanged, o
       setSelectedId(copy.id)
     } catch (err) {
       toast.error(err)
-    }
-  }
-
-  async function translateMcpTool(serverName: string, toolName: string, originalDescription: string) {
-    const key = `${serverName}::${toolName}::${originalDescription}`
-    setTranslatingMcpTool(key)
-    try {
-      const translated = await api.mcp.translateTool(toolName, originalDescription)
-      setTranslatedMcpDescriptions((current) => ({ ...current, [key]: translated }))
-    } catch (err) {
-      toast.error(err)
-    } finally {
-      setTranslatingMcpTool(null)
     }
   }
 
@@ -351,11 +337,10 @@ export function AgentsPage({ agents, providers, draft, onDraftUsed, onChanged, o
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', marginTop: '0.3rem' }}>
                       {s.tools.map((t) => {
                         const checked = form.mcpTools.some((r) => r.serverName === s.name && r.toolName === t.name)
-                        const translationKey = `${s.name}::${t.name}::${t.description}`
                         const knownDescription = getMcpDescricaoPtBR(t.name, t.description)
-                        const translatedDescription = translatedMcpDescriptions[translationKey]
-                        const displayedDescription = translatedDescription ?? knownDescription
-                        const isKnownDescription = knownDescription !== t.description
+                        const properties = t.inputSchema?.properties && typeof t.inputSchema.properties === 'object'
+                          ? t.inputSchema.properties as Record<string, unknown>
+                          : null
                         return (
                           <label key={t.name} className="check">
                             <input
@@ -369,21 +354,17 @@ export function AgentsPage({ agents, providers, draft, onDraftUsed, onChanged, o
                               }}
                             />
                             <span className="small">
-                              <strong>{t.name}</strong> — {displayedDescription}
-                              {!isKnownDescription && !translatedDescription && (
-                                <button
-                                  type="button"
-                                  className="small"
-                                  disabled={translatingMcpTool === translationKey}
-                                  onClick={(event) => {
-                                    event.preventDefault()
-                                    event.stopPropagation()
-                                    void translateMcpTool(s.name, t.name, t.description)
-                                  }}
-                                >
-                                  {translatingMcpTool === translationKey ? 'Traduzindo…' : 'Traduzir'}
-                                </button>
-                              )}
+                              <strong>{t.name}</strong> — <McpTranslatedDescription serverName={s.name} itemName={t.name} original={t.description} knownTranslation={knownDescription} translated={t.descriptionPtBr} translationStatus={t.translationStatus} />
+                              {properties && <ul className="mg-list">{Object.entries(properties).map(([name, raw]) => {
+                                const schema = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {}
+                                const description = typeof schema.description === 'string' ? schema.description : ''
+                                const translatedSchema = t.inputSchemaPtBr?.properties
+                                const translatedProperty = translatedSchema && typeof translatedSchema === 'object' ? (translatedSchema as Record<string, unknown>)[name] : undefined
+                                const translatedDescription = translatedProperty && typeof translatedProperty === 'object' && typeof (translatedProperty as Record<string, unknown>).description === 'string'
+                                  ? (translatedProperty as Record<string, unknown>).description as string
+                                  : undefined
+                                return description ? <li key={name} className="small"><code>{name}</code> — <McpTranslatedDescription serverName={s.name} itemName={`${t.name}.${name}`} original={description} translated={translatedDescription} translationStatus={t.translationStatus} /></li> : null
+                              })}</ul>}
                             </span>
                           </label>
                         )

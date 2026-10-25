@@ -15,6 +15,7 @@ import { DelegationService } from './services/delegation'
 import { registerIpc } from './ipc'
 import { createClient } from './llm'
 import { McpService } from './services/mcp'
+import { McpTranslationService } from './services/mcpTranslation'
 import { loadMcpFile } from './mcpConfig'
 import { FileSecretStore, type Cipher } from './secrets'
 import { ChatService } from './services/chat'
@@ -207,11 +208,13 @@ if (!app.requestSingleInstanceLock()) {
 
     const promptGen = new PromptGenerator({ db, clientFor: (providerId) => chat.clientFor(providerId) })
 
+    const mcpTranslation = new McpTranslationService(db, chat)
     const mcpService = new McpService({
       onStatusChanged: () => send(events.mcpStatusChanged),
       onApprovalRequest: (req) => send(events.mcpApprovalRequest, req),
       onToolCall: (event) => send(events.mcpToolCall, event),
-      onOfficeEvent: (ev) => officeIpc.emit(ev)
+      onOfficeEvent: (ev) => officeIpc.emit(ev),
+      translateTools: (serverName, tools) => mcpTranslation.translate(serverName, tools)
     })
     chat.deps.mcpService = mcpService
 

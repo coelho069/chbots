@@ -460,5 +460,22 @@ export const migrations: string[] = [
     updated_at             TEXT NOT NULL,
     PRIMARY KEY (tool_name, original_description)
   );
+  `,
+  // 15: Traduções automáticas por servidor, incluindo a versão do inputSchema.
+  `
+  CREATE TABLE mcp_tool_translations_auto (
+    server_name              TEXT NOT NULL,
+    tool_name                TEXT NOT NULL,
+    original_hash            TEXT NOT NULL,
+    original_description     TEXT NOT NULL,
+    original_input_schema   TEXT NOT NULL,
+    translated_description   TEXT NOT NULL,
+    translated_input_schema  TEXT NOT NULL,
+    created_at               TEXT NOT NULL,
+    updated_at               TEXT NOT NULL,
+    PRIMARY KEY (server_name, tool_name, original_hash)
+  );
+  CREATE INDEX idx_mcp_tool_translations_auto_tool
+    ON mcp_tool_translations_auto(server_name, tool_name);
   `
 ]

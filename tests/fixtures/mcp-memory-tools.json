@@ -1,0 +1,16 @@
+{
+  "server": "memory",
+  "tools": [
+    {
+      "name": "create_entities",
+      "description": "Creates entities in the knowledge graph.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "entities": { "type": "array", "description": "Entities to create." }
+        },
+        "required": ["entities"]
+      }
+    }
+  ]
+}

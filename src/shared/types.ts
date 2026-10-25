@@ -404,6 +404,7 @@ export interface PilotosApi {
     restart(name: string): Promise<void>
     callTool(serverName: string, toolName: string, args: Record<string, unknown>): Promise<McpCallResult>
     translateTool(toolName: string, description: string): Promise<string>
+    retranslateAll(): Promise<void>
     importConfig(): Promise<McpServerInfo[]>
     approvalRespond(requestId: string, approved: boolean): Promise<void>
     getApprovals(agentId: number): Promise<McpApprovalMap>

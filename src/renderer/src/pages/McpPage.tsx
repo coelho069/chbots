@@ -4,6 +4,7 @@ import type { McpServerConfig } from '@shared/mcp'
 import { getMcpDescricaoPtBR } from '@shared/mcpDescricoesPtBR'
 import { api, errorMessage } from '../api'
 import { useToast } from '../toast'
+import { McpTranslatedDescription } from '../components/McpTranslatedDescription'
 
 const statusLabel: Record<string, string> = { connected: 'Conectado', connecting: 'Conectando…', error: 'Erro', off: 'Desligado' }
 const statusClass: Record<string, string> = { connected: 'mcp-badge-ok', connecting: 'mcp-badge-wait', error: 'mcp-badge-err', off: 'mcp-badge-off' }
@@ -45,19 +46,32 @@ function serverToForm(s: McpServerInfo): FormState {
 interface ToolTestModalProps {
   server: McpServerInfo
   tool: McpToolDef
-  descriptionPtBr?: string
-  onTranslate: () => void
   onClose: () => void
+  refreshToken?: number
 }
 
-function ToolDescription({ tool, translated, onTranslate }: { tool: McpToolDef; translated?: string; onTranslate: () => void }) {
+function ToolDescription({ serverName, tool, refreshToken }: { serverName: string; tool: McpToolDef; refreshToken?: number }) {
   const knownDescription = getMcpDescricaoPtBR(tool.name, tool.description)
-  const description = translated ?? knownDescription
-  const isKnown = knownDescription !== tool.description
-  return <>{description}{!translated && !isKnown && <button className="small" onClick={onTranslate}>Traduzir</button>}</>
+  return <McpTranslatedDescription serverName={serverName} itemName={tool.name} original={tool.description} knownTranslation={knownDescription} translated={tool.descriptionPtBr} translationStatus={tool.translationStatus} refreshToken={refreshToken} />
 }
 
-function ToolTestModal({ server, tool, descriptionPtBr, onTranslate, onClose }: ToolTestModalProps) {
+function ToolParameters({ serverName, tool, refreshToken }: { serverName: string; tool: McpToolDef; refreshToken?: number }) {
+  const properties = tool.inputSchema?.properties
+  if (!properties || typeof properties !== 'object') return null
+  return <ul className="mg-list">{Object.entries(properties as Record<string, unknown>).map(([name, raw]) => {
+    const schema = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {}
+    const original = typeof schema.description === 'string' ? schema.description : ''
+    if (!original) return null
+    const translatedSchema = tool.inputSchemaPtBr?.properties
+    const translatedProperty = translatedSchema && typeof translatedSchema === 'object' ? (translatedSchema as Record<string, unknown>)[name] : undefined
+    const translatedDescription = translatedProperty && typeof translatedProperty === 'object' && typeof (translatedProperty as Record<string, unknown>).description === 'string'
+      ? (translatedProperty as Record<string, unknown>).description as string
+      : undefined
+    return <li key={name} className="small"><code>{name}</code> — <McpTranslatedDescription serverName={serverName} itemName={`${tool.name}.${name}`} original={original} translated={translatedDescription} translationStatus={tool.translationStatus} refreshToken={refreshToken} /></li>
+  })}</ul>
+}
+
+function ToolTestModal({ server, tool, onClose, refreshToken }: ToolTestModalProps) {
   const toast = useToast()
   const [argsText, setArgsText] = useState('{}')
   const [result, setResult] = useState<string | null>(null)
@@ -80,7 +94,8 @@ function ToolTestModal({ server, tool, descriptionPtBr, onTranslate, onClose }: 
           <strong>Testar: {tool.name}</strong>
           <button className="mg-x" onClick={onClose}>×</button>
         </div>
-        <p className="small muted"><ToolDescription tool={tool} translated={descriptionPtBr} onTranslate={onTranslate} /></p>
+        <p className="small muted"><ToolDescription serverName={server.name} tool={tool} refreshToken={refreshToken} /></p>
+        <ToolParameters serverName={server.name} tool={tool} refreshToken={refreshToken} />
         <label className="field-label">Argumentos (JSON)</label>
         <textarea className="code-area" value={argsText} onChange={(e) => setArgsText(e.target.value)} rows={6} />
         <button onClick={() => void run()} disabled={running}>{running ? 'Executando…' : 'Executar'}</button>
@@ -100,7 +115,7 @@ export function McpPage() {
   const [saveError, setSaveError] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [testModal, setTestModal] = useState<{ server: McpServerInfo; tool: McpToolDef } | null>(null)
-  const [translatedDescriptions, setTranslatedDescriptions] = useState<Record<string, string>>({})
+  const [translationRefresh, setTranslationRefresh] = useState(0)
 
   const reload = useCallback(async () => {
     try { setServers(await api.mcp.list()) } catch (e) { toast.error(errorMessage(e)) }
@@ -146,11 +161,11 @@ export function McpPage() {
     try { setServers(await api.mcp.importConfig()) } catch (e) { toast.error(errorMessage(e)) }
   }
 
-  async function translateTool(server: McpServerInfo, tool: McpToolDef) {
-    const key = `${server.name}::${tool.name}::${tool.description}`
+  async function retranslateAll() {
     try {
-      const translated = await api.mcp.translateTool(tool.name, tool.description)
-      setTranslatedDescriptions((current) => ({ ...current, [key]: translated }))
+      await api.mcp.retranslateAll()
+      setTranslationRefresh((current) => current + 1)
+      await reload()
     } catch (e) { toast.error(errorMessage(e)) }
   }
 
@@ -163,6 +178,7 @@ export function McpPage() {
         <div className="row-gap">
           <button onClick={openAdd}>+ Adicionar</button>
           <button onClick={() => void importConfig()}>Importar mcp.json</button>
+          <button onClick={() => void retranslateAll()}>Retraduzir tudo</button>
         </div>
       </div>
 
@@ -192,7 +208,7 @@ export function McpPage() {
               <ul className="mg-list">
                 {s.tools.map((t) => (
                   <li key={t.name} className="mcp-tool-row">
-                    <span className="small"><strong>{t.name}</strong> — <ToolDescription tool={t} translated={translatedDescriptions[`${s.name}::${t.name}::${t.description}`]} onTranslate={() => void translateTool(s, t)} /></span>
+                    <span className="small"><strong>{t.name}</strong> — <ToolDescription serverName={s.name} tool={t} refreshToken={translationRefresh} /><ToolParameters serverName={s.name} tool={t} refreshToken={translationRefresh} /></span>
                     <button className="small" onClick={() => setTestModal({ server: s, tool: t })}>Testar</button>
                   </li>
                 ))}
@@ -269,9 +285,8 @@ export function McpPage() {
         <ToolTestModal
           server={testModal.server}
           tool={testModal.tool}
-          descriptionPtBr={translatedDescriptions[`${testModal.server.name}::${testModal.tool.name}::${testModal.tool.description}`]}
-          onTranslate={() => void translateTool(testModal.server, testModal.tool)}
           onClose={() => setTestModal(null)}
+          refreshToken={translationRefresh}
         />
       )}
     </div>

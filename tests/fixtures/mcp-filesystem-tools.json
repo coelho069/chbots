@@ -1,0 +1,28 @@
+{
+  "server": "filesystem",
+  "tools": [
+    {
+      "name": "read_text_file",
+      "description": "Reads a text file. Use head to read only the first N lines or tail for the last N lines.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "The absolute path to the file." },
+          "head": { "type": "number", "description": "Number of lines to read from the beginning." }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "list_directory",
+      "description": "Lists files and directories in a path.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Directory path to inspect." }
+        },
+        "required": ["path"]
+      }
+    }
+  ]
+}

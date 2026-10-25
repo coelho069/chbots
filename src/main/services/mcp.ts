@@ -14,6 +14,7 @@ export interface McpServiceDeps {
   onApprovalRequest: (req: McpApprovalRequest) => void
   onToolCall: (event: { conversationId: number; serverName: string; toolName: string; args: Record<string, unknown>; result?: McpCallResult; status: 'calling' | 'done' | 'error' | 'denied' }) => void
   onOfficeEvent?: (ev: import('@shared/office').OfficeEvent) => void
+  translateTools?: (serverName: string, tools: McpToolDef[]) => Promise<McpToolDef[]>
 }
 
 interface Entry {
@@ -79,6 +80,7 @@ export class McpService {
       entry.info.status = 'connected'
       await this.refreshCapabilities(name)
       this.deps.onStatusChanged()
+      if (this.deps.translateTools) void this.translateTools(name)
     } catch (err) {
       entry.info.status = 'error'
       entry.info.error = err instanceof Error ? err.message : String(err)
@@ -86,6 +88,28 @@ export class McpService {
       this.deps.onStatusChanged()
       this.scheduleReconnect(name, 0)
     }
+  }
+
+  private async translateTools(name: string): Promise<void> {
+    const entry = this.entries.get(name)
+    if (!entry || !this.deps.translateTools || entry.info.tools.length === 0) return
+    entry.info.tools = entry.info.tools.map((tool) => ({ ...tool, translationStatus: 'translating' as const, translationError: undefined }))
+    this.deps.onStatusChanged()
+    let tools: McpToolDef[]
+    try {
+      tools = await this.deps.translateTools(name, entry.info.tools)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      tools = entry.info.tools.map((tool) => ({ ...tool, descriptionPtBr: tool.description, inputSchemaPtBr: tool.inputSchema, translationStatus: 'original' as const, translationError: message }))
+    }
+    const current = this.entries.get(name)
+    if (!current || current.info.status !== 'connected') return
+    current.info.tools = tools
+    this.deps.onStatusChanged()
+  }
+
+  async retranslateAll(): Promise<void> {
+    await Promise.all([...this.entries.keys()].map((name) => this.translateTools(name)))
   }
 
   async disconnect(name: string): Promise<void> {
@@ -197,7 +221,7 @@ export class McpService {
     const signal = AbortSignal.timeout(TOOL_TIMEOUT_MS)
     try {
       const res = await entry.client.callTool({ name: toolName, arguments: args }, undefined, { signal })
-      const content = (res.content ?? [])
+      const content = ((res.content ?? []) as { type: string; text?: string }[])
         .map((c: { type: string; text?: string }) => (c.type === 'text' ? (c.text ?? '') : `[${c.type}]`))
         .join('\n')
       const result: McpCallResult = { content, isError: res.isError === true, durationMs: Date.now() - start }

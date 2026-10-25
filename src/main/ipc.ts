@@ -72,9 +72,10 @@ import { delegationConfigInput, mcpServerAddInput, mcpApprovalInput } from '@sha
 import { clearAllCache, getCacheStats } from './db/repos/cache'
 import { getApprovals, logMcpCall, setApproval } from './db/repos/mcp'
 import { getMcpTranslation, saveMcpTranslation } from './db/repos/mcpTranslations'
+import { clearMcpAutoTranslations } from './db/repos/mcpAutoTranslations'
 import type { McpService } from './services/mcp'
 import { importFromFile, loadMcpFile, saveMcpFile } from './mcpConfig'
-import type { McpToolApproval } from '@shared/mcp'
+import type { McpServerConfig, McpToolApproval } from '@shared/mcp'
 import { getDelegationConfig, listDelegations, saveDelegationConfig } from './db/repos/delegations'
 import { handoff } from './services/handoff'
 import type { PromptGenerator } from './services/promptGen'
@@ -401,7 +402,7 @@ export function registerIpc(ctx: IpcContext): void {
     const { config } = mcpServerAddInput.parse({ name, config: rawConfig, enabled: rawEnabled ?? true })
     const entries = loadMcpFile(ctx.dataDir)
     if (entries.some((e) => e.name === name)) throw new Error(`Servidor "${name}" já existe`)
-    entries.push({ name, enabled: rawEnabled !== false, config })
+    entries.push({ name, enabled: rawEnabled !== false, config: config as McpServerConfig })
     saveMcpFile(ctx.dataDir, entries)
     loadMcpInBackground(entries)
     return mcpService.list()
@@ -413,7 +414,7 @@ export function registerIpc(ctx: IpcContext): void {
     const idx = entries.findIndex((e) => e.name === name)
     if (idx === -1) throw new Error(`Servidor "${name}" não encontrado`)
     const { config } = mcpServerAddInput.parse({ name, config: rawConfig })
-    entries[idx] = { ...entries[idx]!, config }
+    entries[idx] = { ...entries[idx]!, config: config as McpServerConfig }
     saveMcpFile(ctx.dataDir, entries)
     loadMcpInBackground(entries)
     return mcpService.list()
@@ -471,6 +472,11 @@ export function registerIpc(ctx: IpcContext): void {
     if (!translated) throw new Error('O modelo devolveu uma tradução vazia.')
     saveMcpTranslation(db, toolName, originalDescription, translated)
     return translated
+  })
+
+  handle(channels.mcpRetranslateAll, async () => {
+    clearMcpAutoTranslations(db)
+    await mcpService.retranslateAll()
   })
 
   handle(channels.mcpImport, async () => {
