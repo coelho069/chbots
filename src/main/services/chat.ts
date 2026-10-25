@@ -20,7 +20,29 @@ import type { McpService } from './mcp'
 import { getApprovals } from '../db/repos/mcp'
 import { logMcpCall } from '../db/repos/mcp'
 
-const MAX_TOOL_CALLS = 10
+const MAX_TOOL_ROUNDS = 5
+const MODEL_TIMEOUT_MS = 60_000
+const MAX_TOOL_DESCRIPTION_LENGTH = 600
+
+function modelSignal(parent: AbortSignal, timeoutMs: number): { signal: AbortSignal; timedOut: () => boolean; cleanup: () => void } {
+  const controller = new AbortController()
+  let didTimeout = false
+  const timer = setTimeout(() => {
+    didTimeout = true
+    controller.abort(new Error(`Tempo limite do modelo excedido (${timeoutMs / 1000}s)`))
+  }, timeoutMs)
+  const abort = () => controller.abort(parent.reason)
+  if (parent.aborted) abort()
+  else parent.addEventListener('abort', abort, { once: true })
+  return {
+    signal: controller.signal,
+    timedOut: () => didTimeout,
+    cleanup: () => {
+      clearTimeout(timer)
+      parent.removeEventListener('abort', abort)
+    }
+  }
+}
 
 export interface ChatDeps {
   db: Db
@@ -87,6 +109,7 @@ export class ChatService {
     this.busy.add(conversationId)
     const abortController = new AbortController()
     this.controllers.set(conversationId, abortController)
+    const requestStartedAt = Date.now()
     try {
       const client = this.clientFor(agent.providerId)
       insertMessage(db, { conversationId, role: 'user', content: text, fromAgentId: opts.fromAgentId ?? null })
@@ -121,35 +144,56 @@ export class ChatService {
       this.deps.onOfficeEvent?.({ botId: agent.id, state: 'thinking', task: text.slice(0, 80), ts: Date.now() })
 
       // Build MCP tools list for this agent
+      const toolBuildStartedAt = Date.now()
       const mcpTools: ToolDef[] = []
       const { mcpService } = this.deps
       if (mcpService && agent.mcpTools.length > 0) {
         for (const ref of mcpService.getTools(agent.mcpTools)) {
-          mcpTools.push({ name: ref.tool.name, description: ref.tool.description, inputSchema: ref.tool.inputSchema })
+          // Only selected tools reach the model. Keep the source text (never pt-BR
+          // presentation text) and cap its size to reduce prompt overhead.
+          const description = ref.tool.description.length > MAX_TOOL_DESCRIPTION_LENGTH
+            ? `${ref.tool.description.slice(0, MAX_TOOL_DESCRIPTION_LENGTH - 1)}…`
+            : ref.tool.description
+          mcpTools.push({ name: ref.tool.name, description, inputSchema: ref.tool.inputSchema })
+        }
+      }
+      console.info(`[MCP] montar tools: ${Date.now() - toolBuildStartedAt}ms (${mcpTools.length} selecionadas)`)
+
+      const parentSignal = opts.signal ?? abortController.signal
+      const callModel = async (request: Omit<Parameters<LlmClient['chat']>[0], 'signal'>, label: string) => {
+        const startedAt = Date.now()
+        const timed = modelSignal(parentSignal, MODEL_TIMEOUT_MS)
+        console.info(`[MCP] chamada ao modelo (${label}) iniciada`)
+        try {
+          return await client.chat({ ...request, signal: timed.signal }, (delta) => {
+            this.deps.onChunk({ conversationId, delta })
+            if (delta) this.deps.onOfficeEvent?.({ botId: agent.id, state: 'writing', text: delta.slice(0, 60), ts: Date.now() })
+          })
+        } catch (error) {
+          if (timed.timedOut()) throw new Error(`Tempo limite do modelo excedido (60s)`)
+          throw error
+        } finally {
+          timed.cleanup()
+          console.info(`[MCP] chamada ao modelo (${label}) terminou em ${Date.now() - startedAt}ms`)
         }
       }
 
-      // Tool loop: model may request tool calls up to MAX_TOOL_CALLS times
+      // Tool loop: model may request at most five rounds of tool calls.
       const approvals = mcpService && agent.mcpTools.length > 0 ? getApprovals(db, agent.id) : {}
-      let toolCallCount = 0
-      let result = await client.chat(
-        {
-          model: agent.model,
-          system: systemWithMemory,
-          messages: history,
-          temperature: agent.temperature,
-          signal: opts.signal ?? abortController.signal,
-          tools: mcpTools.length > 0 ? mcpTools : undefined,
-          streaming: mcpTools.length === 0
-        },
-        (delta) => {
-          this.deps.onChunk({ conversationId, delta })
-          if (delta) this.deps.onOfficeEvent?.({ botId: agent.id, state: 'writing', text: delta.slice(0, 60), ts: Date.now() })
-        }
-      )
+      let toolRounds = 0
+      let result = await callModel({
+        model: agent.model,
+        system: systemWithMemory,
+        messages: history,
+        temperature: agent.temperature,
+        tools: mcpTools.length > 0 ? mcpTools : undefined,
+        streaming: true
+      }, 'inicial')
 
-      while (result.toolUse?.length && toolCallCount < MAX_TOOL_CALLS && mcpService) {
-        toolCallCount++
+      while (result.toolUse?.length && mcpService) {
+        if (toolRounds >= MAX_TOOL_ROUNDS) throw new Error(`Limite de ${MAX_TOOL_ROUNDS} rodadas de ferramentas MCP atingido`)
+        toolRounds++
+        console.info(`[MCP] rodada de tools ${toolRounds}/${MAX_TOOL_ROUNDS} (${result.toolUse.length} chamadas)`)
         const toolTurn: ChatTurn = { role: 'assistant', content: result.text, toolUse: result.toolUse }
         history.push(toolTurn)
 
@@ -185,18 +229,14 @@ export class ChatService {
         }
 
         // Final call — stream the text
-        result = await client.chat(
-          {
-            model: agent.model,
-            system: systemWithMemory,
-            messages: history,
-            temperature: agent.temperature,
-            signal: opts.signal ?? abortController.signal,
-            tools: mcpTools,
-            streaming: result.toolUse == null // stream only if no more tool_use expected
-          },
-          (delta) => this.deps.onChunk({ conversationId, delta })
-        )
+        result = await callModel({
+          model: agent.model,
+          system: systemWithMemory,
+          messages: history,
+          temperature: agent.temperature,
+          tools: mcpTools,
+          streaming: true
+        }, `após tools ${toolRounds}`)
       }
 
       // Processa blocos de delegação embutidos na resposta antes de gravar
@@ -234,6 +274,7 @@ export class ChatService {
         tokensIn: result.tokensIn,
         tokensOut: result.tokensOut
       })
+      console.info(`[MCP] resposta final pronta para conversa ${conversationId} em ${Date.now() - requestStartedAt}ms`)
       const source = `conversa com agente ${agent.name} em ${new Date().toLocaleDateString('pt-BR')}`
       this.deps.memory?.extractAndSaveAsync(agent.id, `Usuário: ${text}\nAssistente: ${finalText}`, source)
       this.deps.onOfficeEvent?.({ botId: agent.id, state: 'done', ts: Date.now() })

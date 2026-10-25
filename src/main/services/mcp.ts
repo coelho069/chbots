@@ -6,8 +6,12 @@ import type { McpApprovalRequest, McpCallResult, McpServerInfo, McpToolDef } fro
 import type { McpFileEntry } from '../mcpConfig'
 import { decryptEnvValue, redactConfig } from '../mcpConfig'
 
-const TOOL_TIMEOUT_MS = 60_000
+const TOOL_TIMEOUT_MS = 30_000
 const RECONNECT_DELAYS = [2_000, 5_000, 10_000]
+
+function configKey(config: McpFileEntry['config']): string {
+  return JSON.stringify(config)
+}
 
 export interface McpServiceDeps {
   onStatusChanged: () => void
@@ -19,12 +23,13 @@ export interface McpServiceDeps {
 
 interface Entry {
   info: McpServerInfo
+  configKey: string
   client?: Client
   reconnectTimer?: ReturnType<typeof setTimeout>
 }
 
 // Pending approval: resolve(true/false) when renderer responds.
-interface PendingApproval { resolve: (approved: boolean) => void; timer: ReturnType<typeof setTimeout> }
+interface PendingApproval { resolve: (approved: boolean) => void; timer: ReturnType<typeof setTimeout>; startedAt: number }
 
 export class McpService {
   private readonly entries = new Map<string, Entry>()
@@ -36,21 +41,35 @@ export class McpService {
 
   async loadAll(fileEntries: McpFileEntry[]): Promise<void> {
     // Remove servers not in file anymore
-    for (const name of this.entries.keys()) {
-      if (!fileEntries.some((e) => e.name === name)) await this.disconnect(name)
-    }
+    await Promise.all([...this.entries.keys()]
+      .filter((name) => !fileEntries.some((e) => e.name === name))
+      .map((name) => this.disconnect(name)))
+
+    const toConnect: string[] = []
     for (const fe of fileEntries) {
       const existing = this.entries.get(fe.name)
       if (existing) {
+        const changed = existing.configKey !== configKey(fe.config)
         existing.info.enabled = fe.enabled
         existing.info.config = fe.config
+        existing.configKey = configKey(fe.config)
         if (!fe.enabled && existing.client) await this.disconnect(fe.name)
-        else if (fe.enabled && !existing.client) await this.connect(fe.name)
+        else if (fe.enabled && (changed || !existing.client)) {
+          if (changed && existing.client) await this.disconnect(fe.name)
+          toConnect.push(fe.name)
+        }
       } else {
-        this.entries.set(fe.name, { info: { name: fe.name, config: fe.config, enabled: fe.enabled, status: 'off', tools: [], resources: [], prompts: [] } })
-        if (fe.enabled) await this.connect(fe.name)
+        this.entries.set(fe.name, {
+          configKey: configKey(fe.config),
+          info: { name: fe.name, config: fe.config, enabled: fe.enabled, status: 'off', tools: [], resources: [], prompts: [] }
+        })
+        if (fe.enabled) toConnect.push(fe.name)
       }
     }
+
+    // Connections are independent. Start them together without blocking the caller
+    // on a slow server, while keeping one client and one capability snapshot per entry.
+    await Promise.allSettled(toConnect.map((name) => this.connect(name)))
   }
 
   async connect(name: string): Promise<void> {
@@ -60,6 +79,7 @@ export class McpService {
     entry.info.status = 'connecting'
     entry.info.error = undefined
     this.deps.onStatusChanged()
+    const startedAt = Date.now()
     try {
       const cfg = entry.info.config
       let transport
@@ -77,14 +97,18 @@ export class McpService {
       const client = new Client({ name: 'ch-bots', version: '1.0.0' })
       await client.connect(transport)
       entry.client = client
+      clearTimeout(entry.reconnectTimer)
+      entry.reconnectTimer = undefined
       entry.info.status = 'connected'
       await this.refreshCapabilities(name)
+      console.info(`[MCP] connect server=${name} status=connected durationMs=${Date.now() - startedAt} tools=${entry.info.tools.length}`)
       this.deps.onStatusChanged()
       if (this.deps.translateTools) void this.translateTools(name)
     } catch (err) {
       entry.info.status = 'error'
       entry.info.error = err instanceof Error ? err.message : String(err)
       entry.info.tools = []
+      console.warn(`[MCP] connect server=${name} status=error durationMs=${Date.now() - startedAt} error=${entry.info.error}`)
       this.deps.onStatusChanged()
       this.scheduleReconnect(name, 0)
     }
@@ -119,6 +143,9 @@ export class McpService {
     entry.reconnectTimer = undefined
     try { await entry.client?.close() } catch {}
     entry.client = undefined
+    // A reconnect is the cache boundary: listTools is fetched once for the
+    // new client, then reused until that client is disconnected again.
+    this.capabilitiesCache.delete(name)
     entry.info.status = 'off'
     entry.info.tools = []
     this.deps.onStatusChanged()
@@ -142,6 +169,7 @@ export class McpService {
   private async refreshCapabilities(name: string): Promise<void> {
     const entry = this.entries.get(name)
     if (!entry?.client) return
+    const startedAt = Date.now()
     try {
       const [toolsRes, resourcesRes, promptsRes] = await Promise.allSettled([
         entry.client.listTools(),
@@ -161,7 +189,10 @@ export class McpService {
       entry.info.prompts = promptsRes.status === 'fulfilled'
         ? (promptsRes.value.prompts ?? []).map((p) => ({ name: p.name, description: p.description }))
         : []
-    } catch {}
+      console.info(`[MCP] listTools server=${name} status=${toolsRes.status} durationMs=${Date.now() - startedAt} tools=${entry.info.tools.length}`)
+    } catch (error) {
+      console.warn(`[MCP] listTools server=${name} status=error durationMs=${Date.now() - startedAt} error=${error instanceof Error ? error.message : String(error)}`)
+    }
   }
 
   // ---- Query ----
@@ -218,6 +249,7 @@ export class McpService {
     }
 
     const start = Date.now()
+    console.info(`[MCP] chamando ${serverName}.${toolName}`)
     const signal = AbortSignal.timeout(TOOL_TIMEOUT_MS)
     try {
       const res = await entry.client.callTool({ name: toolName, arguments: args }, undefined, { signal })
@@ -225,27 +257,33 @@ export class McpService {
         .map((c: { type: string; text?: string }) => (c.type === 'text' ? (c.text ?? '') : `[${c.type}]`))
         .join('\n')
       const result: McpCallResult = { content, isError: res.isError === true, durationMs: Date.now() - start }
+      console.info(`[MCP] ${serverName}.${toolName} concluída em ${result.durationMs}ms`)
       if (opts.conversationId != null) {
         this.deps.onToolCall({ conversationId, serverName, toolName, args, result, status: res.isError ? 'error' : 'done' })
       }
       return result
     } catch (err) {
-      const result: McpCallResult = { content: err instanceof Error ? err.message : String(err), isError: true, durationMs: Date.now() - start }
+      const message = signal.aborted ? `Tempo limite da ferramenta MCP excedido (30s)` : (err instanceof Error ? err.message : String(err))
+      const result: McpCallResult = { content: message, isError: true, durationMs: Date.now() - start }
+      console.warn(`[MCP] ${serverName}.${toolName} falhou após ${result.durationMs}ms: ${result.content}`)
       if (opts.conversationId != null) {
         this.deps.onToolCall({ conversationId, serverName, toolName, args, result, status: 'error' })
       }
-      throw err
+      throw new Error(message)
     }
   }
 
   private requestApproval(req: Omit<McpApprovalRequest, 'requestId'>): Promise<boolean> {
     return new Promise<boolean>((resolve) => {
       const requestId = randomUUID()
+      const startedAt = Date.now()
+      console.info(`[MCP] aguardando aprovação para ${req.serverName}.${req.toolName}`)
       const timer = setTimeout(() => {
         this.pending.delete(requestId)
+        console.info(`[MCP] aprovação expirada para ${req.serverName}.${req.toolName} após ${Date.now() - startedAt}ms`)
         resolve(false)
       }, TOOL_TIMEOUT_MS)
-      this.pending.set(requestId, { resolve, timer })
+      this.pending.set(requestId, { resolve, timer, startedAt })
       this.deps.onApprovalRequest({ requestId, ...req })
     })
   }
@@ -255,6 +293,7 @@ export class McpService {
     if (!p) return
     clearTimeout(p.timer)
     this.pending.delete(requestId)
+    console.info(`[MCP] aprovação ${approved ? 'concedida' : 'negada'} após ${Date.now() - p.startedAt}ms`)
     p.resolve(approved)
   }
 

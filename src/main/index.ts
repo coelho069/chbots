@@ -280,9 +280,15 @@ if (!app.requestSingleInstanceLock()) {
       }, 3000)
     })
 
-    // Load MCP servers 3s after startup (same deferred window)
+    // Connect MCP servers in the background as soon as the window is ready.
+    // McpService reuses existing clients and capability snapshots on later loads.
     mainWindow.once('ready-to-show', () => {
-      setTimeout(() => void mcpService.loadAll(loadMcpFile(dataDir)).catch(() => undefined), 3000)
+      const startedAt = Date.now()
+      void mcpService.loadAll(loadMcpFile(dataDir)).then(() => console.info(`[MCP] startup status=ready durationMs=${Date.now() - startedAt}`)).catch((error: unknown) => {
+        console.warn(`[MCP] startup status=error durationMs=${Date.now() - startedAt} error=${error instanceof Error ? error.message : String(error)}`)
+      }).catch((error: unknown) => {
+        console.warn('[MCP] falha ao carregar servidores na inicialização:', error)
+      })
     })
 
     app.on('before-quit', () => {

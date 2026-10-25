@@ -29,6 +29,8 @@ export function ChatPage({ agents, target, onOpenChat }: Props) {
   const [delegCards, setDelegCards] = useState<DelegationCard[]>([])
   const [mcpToolCalls, setMcpToolCalls] = useState<McpToolCallEvent[]>([])
   const [mcpApproval, setMcpApproval] = useState<McpApprovalRequest | null>(null)
+  const [sendError, setSendError] = useState<{ conversationId: number; content: string; message: string } | null>(null)
+  const [approvalError, setApprovalError] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   const clearDraft = useCallback(
@@ -134,7 +136,13 @@ export function ChatPage({ agents, target, onOpenChat }: Props) {
   }), [conversationId])
 
   // Limpa cartões ao trocar de conversa
-  useEffect(() => { setDelegCards([]); setMcpToolCalls([]) }, [conversationId])
+  useEffect(() => {
+    setDelegCards([])
+    setMcpToolCalls([])
+    setMcpApproval(null)
+    setApprovalError(null)
+    setSendError(null)
+  }, [conversationId])
 
   // Cartões de chamada de ferramenta MCP em tempo real
   useEffect(() => api.mcp.onToolCall((event) => {
@@ -172,6 +180,7 @@ export function ChatPage({ agents, target, onOpenChat }: Props) {
     const content = text.trim()
     if (!content || sending || agentId === null) return
     setSending(true)
+    setSendError(null)
     let id = conversationId
     try {
       if (id === null) {
@@ -183,7 +192,9 @@ export function ChatPage({ agents, target, onOpenChat }: Props) {
       setMessages((m) => [...m, optimistic(id!, content)])
       await api.chat.send(id, content)
     } catch (err) {
-      toast.error(err)
+      const message = err instanceof Error ? err.message : String(err)
+      setSendError({ conversationId: id ?? -1, content, message })
+      toast.error(message)
     } finally {
       setSendingConvId(null)
       // Em caso de erro a mensagem do usuário continua gravada; recarrega para refletir isso.
@@ -191,6 +202,28 @@ export function ChatPage({ agents, target, onOpenChat }: Props) {
         const m = await api.conversations.messages(id).catch(() => [] as Message[])
         setMessages(m); setHasMore(m.length === 50)
       }
+      await loadConversations().catch(() => undefined)
+      setSending(false)
+    }
+  }
+
+  async function retryFailedMessage() {
+    if (!sendError || sending) return
+    const failed = sendError
+    setSendError(null)
+    setSending(true)
+    setSendingConvId(failed.conversationId)
+    try {
+      await api.chat.send(failed.conversationId, failed.content)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      setSendError({ ...failed, message })
+      toast.error(message)
+    } finally {
+      setSendingConvId(null)
+      const loaded = await api.conversations.messages(failed.conversationId).catch(() => [] as Message[])
+      setMessages(loaded)
+      setHasMore(loaded.length === 50)
       await loadConversations().catch(() => undefined)
       setSending(false)
     }
@@ -226,6 +259,12 @@ export function ChatPage({ agents, target, onOpenChat }: Props) {
 
   const draft = conversationId !== null ? drafts[conversationId] : undefined
   const waiting = sending && draft === undefined
+  const activeMcpCall = mcpToolCalls.find((event) => event.status === 'calling')
+  const waitingLabel = mcpApproval
+    ? 'Aguardando aprovação…'
+    : activeMcpCall
+      ? `Chamando ${activeMcpCall.toolName}…`
+      : 'Pensando…'
 
   return (
     <div className="page split">
@@ -308,9 +347,17 @@ export function ChatPage({ agents, target, onOpenChat }: Props) {
             <McpApprovalCard
               req={mcpApproval}
               onRespond={async (approved) => {
-                setMcpApproval(null)
-                await api.mcp.approvalRespond(mcpApproval.requestId, approved).catch(() => undefined)
+                setApprovalError(null)
+                try {
+                  await api.mcp.approvalRespond(mcpApproval.requestId, approved)
+                  setMcpApproval(null)
+                } catch (err) {
+                  const message = err instanceof Error ? err.message : String(err)
+                  setApprovalError(message)
+                  throw err
+                }
               }}
+              error={approvalError}
             />
           )}
           {draft !== undefined && (
@@ -318,7 +365,21 @@ export function ChatPage({ agents, target, onOpenChat }: Props) {
               <div className="bubble-text">{draft}</div>
             </div>
           )}
-          {waiting && <div className="bubble assistant streaming muted">Pensando…</div>}
+          {waiting && <div className="bubble assistant streaming muted" aria-live="polite">{waitingLabel}</div>}
+          <div className="small muted center" aria-live="polite">
+            {draft !== undefined && 'Resposta em streaming...'}
+          </div>
+          {sendError && sendError.conversationId === conversationId && (
+            <div className="delegation-card status-error" role="alert">
+              <div className="delegation-header" style={{ cursor: 'default' }}>
+                <span>⚠ Não foi possível concluir a resposta</span>
+              </div>
+              <div className="delegation-body">
+                <div className="error-text">{sendError.message}</div>
+                <button className="primary" onClick={() => void retryFailedMessage()} disabled={sending}>Tentar de novo</button>
+              </div>
+            </div>
+          )}
           <div ref={bottomRef} />
         </div>
 
@@ -431,12 +492,13 @@ function DelegationCardView({ card }: { card: DelegationCard }) {
 
 function McpToolCallCard({ event: ev }: { event: McpToolCallEvent }) {
   const [open, setOpen] = useState(false)
+  const statusLabel = ev.status === 'calling' ? 'Executando' : ev.status === 'done' ? 'Concluída' : ev.status === 'denied' ? 'Negada' : 'Erro'
   const statusIcon = ev.status === 'calling' ? '⟳' : ev.status === 'done' ? '✓' : ev.status === 'denied' ? '✕' : '⚠'
   return (
-    <div className={`delegation-card status-${ev.status === 'done' ? 'ok' : ev.status === 'calling' ? 'running' : 'error'}`}>
+    <div className={`delegation-card status-${ev.status === 'done' ? 'ok' : ev.status === 'calling' ? 'running' : 'error'}`} aria-live="polite">
       <button className="delegation-header" onClick={() => setOpen((o) => !o)}>
         <span>{statusIcon} MCP <strong>{ev.toolName}</strong> @ {ev.serverName}</span>
-        <span className="delegation-meta">{ev.result ? `${ev.result.durationMs}ms` : '…'}</span>
+        <span className="delegation-meta">{statusLabel} {ev.result ? `· ${ev.result.durationMs}ms` : ''}</span>
         <span>{open ? '▲' : '▼'}</span>
       </button>
       {open && (
@@ -457,9 +519,13 @@ function McpToolCallCard({ event: ev }: { event: McpToolCallEvent }) {
   )
 }
 
-function McpApprovalCard({ req, onRespond }: { req: McpApprovalRequest; onRespond: (approved: boolean) => Promise<void> }) {
+function McpApprovalCard({ req, onRespond, error }: { req: McpApprovalRequest; onRespond: (approved: boolean) => Promise<void>; error: string | null }) {
   const [done, setDone] = useState(false)
-  async function respond(approved: boolean) { setDone(true); await onRespond(approved) }
+  const [responding, setResponding] = useState(false)
+  async function respond(approved: boolean) {
+    setResponding(true)
+    try { await onRespond(approved); setDone(true) } catch { /* o erro permanece visível no card */ } finally { setResponding(false) }
+  }
   return (
     <div className="delegation-card status-running">
       <div className="delegation-header" style={{ cursor: 'default' }}>
@@ -470,10 +536,11 @@ function McpApprovalCard({ req, onRespond }: { req: McpApprovalRequest; onRespon
           <span className="muted small">Argumentos</span>
           <pre style={{ margin: 0, fontSize: '0.8rem' }}>{JSON.stringify(req.args, null, 2)}</pre>
         </div>
+        {error && <div className="error-text" role="alert">Não foi possível registrar a decisão: {error}</div>}
         {!done && (
           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-            <button onClick={() => void respond(true)} className="primary">Aprovar</button>
-            <button onClick={() => void respond(false)} className="danger">Negar</button>
+            <button onClick={() => void respond(true)} className="primary" disabled={responding}>{responding ? 'Enviando...' : 'Aprovar'}</button>
+            <button onClick={() => void respond(false)} className="danger" disabled={responding}>Negar</button>
           </div>
         )}
         {done && <span className="muted small">Respondido</span>}

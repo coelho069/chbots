@@ -40,7 +40,7 @@ export class OpenAiCompatClient implements LlmClient {
       }
     }
 
-    const useStream = req.streaming !== false && !(req.tools?.length)
+    const useStream = req.streaming !== false
     const body: Record<string, unknown> = {
       model: req.model,
       messages,
@@ -76,11 +76,31 @@ export class OpenAiCompatClient implements LlmClient {
     let text = ''
     let tokensIn: number | null = null
     let tokensOut: number | null = null
+    const toolCalls = new Map<number, { id: string; name: string; arguments: string }>()
     for await (const raw of readSse(res.body)) {
       const chunk = raw as Chunk
       const delta = chunk.choices?.[0]?.delta?.content
       if (delta) { text += delta; onDelta(delta) }
+      for (const call of chunk.choices?.[0]?.delta?.tool_calls ?? []) {
+        const current = toolCalls.get(call.index) ?? { id: '', name: '', arguments: '' }
+        if (call.id) current.id = call.id
+        if (call.function?.name) current.name += call.function.name
+        if (call.function?.arguments) current.arguments += call.function.arguments
+        toolCalls.set(call.index, current)
+      }
       if (chunk.usage) { tokensIn = chunk.usage.prompt_tokens ?? tokensIn; tokensOut = chunk.usage.completion_tokens ?? tokensOut }
+    }
+    if (toolCalls.size > 0) {
+      return {
+        text,
+        tokensIn,
+        tokensOut,
+        toolUse: [...toolCalls.values()].map((call) => ({
+          id: call.id,
+          name: call.name,
+          input: JSON.parse(call.arguments || '{}') as Record<string, unknown>
+        }))
+      }
     }
     return { text, tokensIn, tokensOut }
   }
