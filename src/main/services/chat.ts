@@ -19,6 +19,13 @@ import type { MemoryService } from './memory'
 import type { McpService } from './mcp'
 import { getApprovals } from '../db/repos/mcp'
 import { logMcpCall } from '../db/repos/mcp'
+import TOOL_REGISTRY from '../tools/registry'
+import { NativeToolSet } from '../agent'
+
+// ============================================================
+//  Ferramentas nativas (integradas ao tool loop)
+// ============================================================
+const NATIVE_TOOLS = new NativeToolSet()
 
 const MAX_TOOL_ROUNDS = 5
 const MODEL_TIMEOUT_MS = 60_000

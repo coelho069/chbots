@@ -8,21 +8,31 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
-    "postbuild": "node scripts/patch-bundle.cjs",
+    "postbuild": "node scripts/patch-bundle.cjs && node scripts/copy-native.cjs",
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
     "test:e2e": "electron-vite build && node tests/e2e/flows.e2e.mjs",
     "predist": "rimraf build-out",
-    "dist": "electron-vite build && electron-builder --win",
+    "dist": "node scripts/fix-build.cjs",
     "postdist": "node -e \"const fs=require('fs'),p=require('path').resolve('build-out/CH-BOTS-Setup.exe'); if(!fs.existsSync(p)){console.error('ERRO: instalador nao encontrado: '+p); process.exit(1)} console.log(p)\""
+  },
+  "build": {
+    "asarUnpack": [
+      "**/native/**/*.node"
+    ],
+    "icon": "resources/icon.png"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.1.2",
     "@modelcontextprotocol/sdk": "^1.12.0",
     "@rolldown/binding-wasm32-wasi": "^1.2.15",
     "node-cron": "4.6.0",
-    "zod": "4.6.7"
+    "zod": "4.6.7",
+    "ocr": "link:./src/main/native/ocr",
+    "process-list": "link:./src/main/native/process-list",
+    "screen-capture": "link:./src/main/native/screen-capture",
+    "vm-detection": "link:./src/main/native/vm-detection"
   },
   "devDependencies": {
     "@emnapi/core": "^2.0.0-beta.2",

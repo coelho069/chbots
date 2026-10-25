@@ -12,14 +12,23 @@ files:
   - out/renderer/**
   - resources/icon.png
   - package.json
-  - "!**/*.map"
-  - "!**/*.test.*"
-  - "!**/tests/**"
-  - "!**/*.md"
-  - "!**/node_modules/.cache/**"
+  - "!/**/*.map"
+  - "!/**/*.test.*"
+  - "!/**/tests/**"
+  - "!/**/*.md"
+  - "!/**/node_modules/.cache/**"
+# Módulos nativos (.node) precisam sair do asar para serem carregados pelo Node
+extraFiles:
+  - out/main/native/**/*.node
 win:
   target: nsis
   icon: resources/icon.png
+  # Hardening: execução nível mais alto, sem assinatura automática de código
+  requestedExecutionLevel: asInvoker
+  verifyInstaller: true
+  orientation: portrait
+  allowElevation: false
+  allowBusyCursor: false
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
@@ -27,5 +36,13 @@ nsis:
   artifactName: CH-BOTS-Setup.exe
   # Sem differential update: não gera .blockmap.
   differentialPackage: false
+  # Hardening: símbolo de segurança nas legends do installer
+  warnWhenUpdating: false
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  createStartMenuFolder: true
+  selectTasks:
+    - createDesktopShortcut
+    - createStartMenuShortcut
 portable:
   artifactName: CH-BOTS-Portable.exe
