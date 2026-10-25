@@ -7,7 +7,10 @@ const shared = { '@shared': resolve(import.meta.dirname, 'src/shared') }
 export default defineConfig({
   main: {
     resolve: { alias: shared },
-    build: { minify: true }
+    build: {
+      minify: true,
+      rollupOptions: {}
+    }
   },
   preload: {
     resolve: { alias: shared },

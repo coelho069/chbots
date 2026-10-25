@@ -1,6 +1,3 @@
-// Corrige fileURLToPath(import.meta.url) em dependências bundladas no main CJS.
-// O rolldown substitui import.meta por {} e .url fica undefined → crash na init.
-// Padrão minificado: (0,X.fileURLToPath)(Y.url) onde Y={}.
 'use strict'
 const fs = require('fs')
 const file = 'out/main/index.js'
@@ -12,6 +9,9 @@ const fixed = src.replace(
 if (fixed !== src) {
   fs.writeFileSync(file, fixed, 'utf8')
   console.log('patch-bundle: corrigido fileURLToPath(import.meta.url) → pathToFileURL(__filename)')
+} else if (src.includes('fileURLToPath')) {
+  console.error('patch-bundle: ERRO — fileURLToPath encontrado mas padrão não casou. Verifique o bundle.')
+  process.exit(1)
 } else {
-  console.log('patch-bundle: padrão não encontrado (bundle já está limpo)')
+  console.log('patch-bundle: ok — nenhum fileURLToPath no bundle (dependências externalizadas)')
 }
