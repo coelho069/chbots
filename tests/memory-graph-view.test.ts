@@ -1,9 +1,24 @@
 import { describe, expect, it } from 'vitest'
 import type { MemoryFato, MemoryLigacao } from '../src/shared/types'
 import {
-  degreeMap, groupColorMap, labelAlpha, localGraph, matchGroupQuery,
+  buildLinkIndex, degreeMap, groupColorMap, labelAlpha, localGraph, matchGroupQuery,
   neighborsOf, nodeRadius, resolveNodeColor
 } from '../src/renderer/src/pages/memoryGraphLogic'
+
+describe('Grafo de Memória — escala', () => {
+  it('indexa ligações de 1000+ nós em uma única passagem', () => {
+    const links = Array.from({ length: 1199 }, (_, i) => lig(i + 1, i + 1, i + 2))
+    links.push(lig(2000, 100, 1100, 'mesma_entidade'))
+    links.push(lig(2001, 200, 1200, 'conflito'))
+    const index = buildLinkIndex(links)
+
+    expect(index.connected.size).toBe(1200)
+    expect(index.entity).toEqual(new Set([100, 1100]))
+    expect(index.conflict).toEqual(new Set([200, 1200]))
+    expect(index.connected.has(1200)).toBe(true)
+    expect(index.connected.has(1300)).toBe(false)
+  })
+})
 import { openDatabase } from '../src/main/db/connection'
 import {
   deleteGraphGroup, getGraphConfig, listGraphGroups, saveGraphConfig, saveGraphGroup

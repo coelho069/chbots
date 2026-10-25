@@ -197,14 +197,14 @@ export interface GraphGroup { id: number; nome: string; consulta: string; cor: s
 
 export interface GraphConfig {
   showOrphans: boolean; showEntities: boolean; showConflicts: boolean
-  showArrows: boolean; nodeSize: number; linkWidth: number; textFade: number
+  showArrows: boolean; showLinkLabels: boolean; nodeSize: number; linkWidth: number; textFade: number
   centerForce: number; repelForce: number; linkForce: number; linkDistance: number
   localDepth: number; panelOpen: boolean
 }
 
 export const defaultGraphConfig: GraphConfig = {
   showOrphans: true, showEntities: true, showConflicts: true,
-  showArrows: false, nodeSize: 100, linkWidth: 100, textFade: 1.5,
+  showArrows: false, showLinkLabels: false, nodeSize: 100, linkWidth: 100, textFade: 1.5,
   centerForce: 20, repelForce: 120, linkForce: 50, linkDistance: 60,
   localDepth: 1, panelOpen: false
 }

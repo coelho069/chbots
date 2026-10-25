@@ -1,5 +1,24 @@
 import type { GraphGroup, MemoryFato, MemoryLigacao } from '@shared/types'
 
+export interface LinkIndex {
+  connected: Set<number>
+  entity: Set<number>
+  conflict: Set<number>
+}
+
+/** Índices lineares para filtros da view; evita percorrer todas as ligações por nó. */
+export function buildLinkIndex(ligacoes: MemoryLigacao[]): LinkIndex {
+  const connected = new Set<number>()
+  const entity = new Set<number>()
+  const conflict = new Set<number>()
+  for (const l of ligacoes) {
+    connected.add(l.origemId); connected.add(l.destinoId)
+    if (l.tipo === 'mesma_entidade') { entity.add(l.origemId); entity.add(l.destinoId) }
+    if (l.tipo === 'conflito') { conflict.add(l.origemId); conflict.add(l.destinoId) }
+  }
+  return { connected, entity, conflict }
+}
+
 // Lógica pura do Grafo de Memória (sem DOM/React): testável em Node.
 
 export function degreeMap(ligacoes: MemoryLigacao[]): Map<number, number> {

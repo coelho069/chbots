@@ -8,8 +8,8 @@ import {
 import { api, errorMessage } from '../api'
 import { useToast } from '../toast'
 import {
-  chronologicalOrder, degreeMap, groupColorMap, hasConflictLink, hasEntityLink,
-  isOrphan, labelAlpha, localGraph, neighborsOf, nodeRadius
+  buildLinkIndex, chronologicalOrder, degreeMap, groupColorMap,
+  labelAlpha, localGraph, neighborsOf, nodeRadius
 } from './memoryGraphLogic'
 
 interface GNode {
@@ -174,6 +174,39 @@ export function MemoryGraph({ categorias }: Props) {
 
   useEffect(() => { void reload() }, [reload])
 
+  // Atualiza fatos e relações criados por agentes/MCP sem reiniciar o grafo
+  // quando o snapshot ainda é o mesmo.
+  useEffect(() => {
+    let disposed = false
+    const refreshLive = async () => {
+      try {
+        const [nextFatos, nextLigacoes] = await Promise.all([
+          api.memory.list({ orderBy: 'confianca' }),
+          api.memory.ligacoesList()
+        ])
+        if (disposed) return
+        setFatos((previous) => {
+          const unchanged = previous.length === nextFatos.length && previous.every((item, index) => {
+            const next = nextFatos[index]
+            return next && item.id === next.id && item.atualizadoEm === next.atualizadoEm
+          })
+          return unchanged ? previous : nextFatos
+        })
+        setLigacoes((previous) => {
+          const unchanged = previous.length === nextLigacoes.length && previous.every((item, index) => {
+            const next = nextLigacoes[index]
+            return next && item.id === next.id && item.peso === next.peso
+          })
+          return unchanged ? previous : nextLigacoes
+        })
+      } catch {
+        // Atualização oportunista: mantém o último snapshot em caso de falha.
+      }
+    }
+    const timer = setInterval(() => { void refreshLive() }, 4_000)
+    return () => { disposed = true; clearInterval(timer) }
+  }, [])
+
   // Salvar configurações no SQLite (debounce).
   useEffect(() => {
     if (!configLoadedRef.current) return
@@ -237,9 +270,10 @@ export function MemoryGraph({ categorias }: Props) {
     fs = fs.slice(0, limit)
     const ids = new Set(fs.map((f) => f.id))
     const inner = ligacoes.filter((l) => ids.has(l.origemId) && ids.has(l.destinoId))
-    if (!config.showOrphans) fs = fs.filter((f) => !isOrphan(f.id, inner))
-    if (!config.showEntities) fs = fs.filter((f) => !hasEntityLink(f.id, inner))
-    if (!config.showConflicts) fs = fs.filter((f) => f.status !== 'conflito' && !hasConflictLink(f.id, inner))
+    const index = buildLinkIndex(inner)
+    if (!config.showOrphans) fs = fs.filter((f) => index.connected.has(f.id))
+    if (!config.showEntities) fs = fs.filter((f) => !index.entity.has(f.id))
+    if (!config.showConflicts) fs = fs.filter((f) => f.status !== 'conflito' && !index.conflict.has(f.id))
     return fs
   }, [fatos, filters, limit, ligacoes, config.showOrphans, config.showEntities, config.showConflicts])
 
@@ -457,6 +491,22 @@ export function MemoryGraph({ categorias }: Props) {
               if (hoveredNeighbors) return hoveredNeighbors.has(s) && hoveredNeighbors.has(t) ? base * 2.4 : base * 0.4
               return base
             }}
+            linkCanvasObject={(link, ctx, globalScale) => {
+              if (!config.showLinkLabels || globalScale < 1.35) return
+              const current = link as GLink & { source: GNode; target: GNode }
+              const source = current.source as GNode
+              const target = current.target as GNode
+              if (source.x == null || source.y == null || target.x == null || target.y == null) return
+              const x = (source.x + target.x) / 2
+              const y = (source.y + target.y) / 2
+              ctx.save()
+              ctx.font = `${Math.max(7, 10 / globalScale)}px sans-serif`
+              ctx.textAlign = 'center'
+              ctx.textBaseline = 'middle'
+              ctx.fillStyle = 'rgba(210, 218, 225, 0.72)'
+              ctx.fillText(LINK_LABEL[current.tipo], x, y - 4 / globalScale)
+              ctx.restore()
+            }}
             linkLineDash={(l) => ((l as GLink).tipo === 'conflito' ? [4, 2] : undefined)}
             linkDirectionalArrowLength={config.showArrows ? 3.5 : 0}
             linkDirectionalArrowRelPos={1}
@@ -536,6 +586,7 @@ export function MemoryGraph({ categorias }: Props) {
 
               <div className="mg-section">Exibição</div>
               <label className="mg-check"><input type="checkbox" checked={config.showArrows} onChange={(e) => setCfg({ showArrows: e.target.checked })} /> Setas nas ligações</label>
+              <label className="mg-check"><input type="checkbox" checked={config.showLinkLabels} onChange={(e) => setCfg({ showLinkLabels: e.target.checked })} /> Rótulos das relações</label>
               {slider('Tamanho dos nós (%)', config.nodeSize, 50, 220, 5, (v) => setCfg({ nodeSize: v }))}
               {slider('Espessura das linhas (%)', config.linkWidth, 20, 300, 5, (v) => setCfg({ linkWidth: v }))}
               {slider('Limite p/ rótulos (zoom)', config.textFade, 0.5, 4, 0.1, (v) => setCfg({ textFade: v }))}
