@@ -174,9 +174,9 @@ export function registerIpc(ctx: IpcContext): void {
   })
   handle(channels.conversationsMessages, (rawId, rawBeforeId?) => listMessages(db, id(rawId), rawBeforeId != null ? id(rawBeforeId) : undefined))
 
-  handle(channels.chatSend, (conversationId, text) => {
-    const input = sendInput.parse({ conversationId, text })
-    return chat.send(input.conversationId, input.text)
+  handle(channels.chatSend, (conversationId, text, rawAttachments?) => {
+    const input = sendInput.parse({ conversationId, text, attachments: rawAttachments })
+    return chat.send(input.conversationId, input.text, { attachments: input.attachments })
   })
   handle(channels.chatStop, (conversationId) => { chat.stop(id(conversationId)) })
   handle(channels.chatHandoff, (input) => {

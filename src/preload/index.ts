@@ -35,7 +35,7 @@ const api: PilotosApi = {
     messages: (id, beforeId?) => invoke(c.conversationsMessages, id, beforeId)
   },
   chat: {
-    send: (conversationId, text) => invoke(c.chatSend, conversationId, text),
+    send: (conversationId, text, attachments?) => invoke(c.chatSend, conversationId, text, attachments),
     stop: (conversationId) => invoke(c.chatStop, conversationId),
     handoff: (input) => invoke(c.chatHandoff, input),
     onChunk: (listener) => subscribe<ChatChunk>(events.chatChunk, listener)

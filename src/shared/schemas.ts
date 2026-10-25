@@ -23,13 +23,20 @@ export const routineInput = z.object({
   taskPrompt: z.string().trim().min(1).max(50_000),
   targetAgentId: idSchema.nullable(),
   handoffPrompt: z.string().max(50_000).nullable(),
-  enabled: z.boolean()
+  enabled: z.boolean(),
+  notifyOnlyWhenChanged: z.boolean().default(false)
 })
 export type RoutineInput = z.infer<typeof routineInput>
 
 export const sendInput = z.object({
   conversationId: idSchema,
-  text: z.string().trim().min(1).max(200_000)
+  text: z.string().trim().min(1).max(200_000),
+  attachments: z.array(z.object({
+    name: z.string(),
+    mediaType: z.string(),
+    data: z.string(),
+    size: z.number().max(10 * 1024 * 1024)
+  })).optional()
 })
 
 export const handoffInput = z.object({

@@ -1,4 +1,4 @@
-import { ensureOk, readSse, trimSlash, type ChatRequest, type ChatResult, type LlmClient, type ToolUseBlock } from './provider'
+import { ensureOk, readSse, trimSlash, type ChatRequest, type ChatResult, type ContentBlock, type LlmClient, type ToolUseBlock } from './provider'
 
 interface Chunk {
   choices?: { delta?: { content?: string | null; tool_calls?: { index: number; id?: string; function?: { name?: string; arguments?: string } }[] }; finish_reason?: string }[]
@@ -35,6 +35,13 @@ export class OpenAiCompatClient implements LlmClient {
           content: m.content || null,
           tool_calls: m.toolUse.map((t) => ({ id: t.id, type: 'function', function: { name: t.name, arguments: JSON.stringify(t.input) } }))
         })
+      } else if (Array.isArray(m.content)) {
+        const oaiContent = (m.content as ContentBlock[]).map((b) =>
+          b.type === 'text'
+            ? { type: 'text' as const, text: b.text }
+            : { type: 'image_url' as const, image_url: { url: `data:${b.source.media_type};base64,${b.source.data}` } }
+        )
+        messages.push({ role: m.role, content: oaiContent })
       } else {
         messages.push({ role: m.role, content: m.content })
       }

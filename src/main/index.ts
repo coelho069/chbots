@@ -196,8 +196,9 @@ if (!app.requestSingleInstanceLock()) {
       db,
       chat,
       onRunsChanged: () => send(events.runsChanged),
-      onRunFinished: (routine, run) => {
+      onRunFinished: (routine, run, outputChanged) => {
         if (!getSettings(db).notifyOnRun || !Notification.isSupported()) return
+        if (routine.notifyOnlyWhenChanged && !outputChanged) return
         new Notification({
           title: run.status === 'ok' ? `Rotina concluída: ${routine.name}` : `Rotina falhou: ${routine.name}`,
           body: run.status === 'ok' ? 'Abra o CH BOTS para ver a resposta.' : (run.error ?? 'Erro desconhecido'),

@@ -1,8 +1,12 @@
 import type { ProviderKind } from '@shared/types'
 
+export type ContentBlock =
+  | { type: 'text'; text: string }
+  | { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }
+
 export interface ChatTurn {
   role: 'user' | 'assistant' | 'tool'
-  content: string
+  content: string | ContentBlock[]
   // Only for role='tool': tool call id this result answers
   toolCallId?: string
   // Only for role='assistant': tool_use blocks requested by the model

@@ -2,6 +2,13 @@ import type { FlowDetail, FlowRun, FlowRunStep, FlowSaveInput, FlowStepEvent, Fl
 import type { AgentInput, HandoffInput, PromptGenerateInput, ProviderInput, RoutineInput } from './schemas'
 import type { McpApprovalMap, McpApprovalRequest, McpCallResult, McpServerInfo, McpToolRef } from './mcp'
 
+export interface Attachment {
+  name: string
+  mediaType: string
+  data: string   // base64
+  size: number
+}
+
 export const providerKinds = ['openai', 'anthropic', 'ollama'] as const
 export type ProviderKind = (typeof providerKinds)[number]
 
@@ -75,6 +82,8 @@ export interface Routine {
   enabled: boolean
   lastRunAt: string | null
   createdAt: string
+  lastOutputHash: string | null
+  notifyOnlyWhenChanged: boolean
 }
 
 export type RunStatus = 'running' | 'ok' | 'error'
@@ -307,7 +316,7 @@ export interface PilotosApi {
     messages(id: number, beforeId?: number): Promise<Message[]>
   }
   chat: {
-    send(conversationId: number, text: string): Promise<Message>
+    send(conversationId: number, text: string, attachments?: Attachment[]): Promise<Message>
     stop(conversationId: number): Promise<void>
     handoff(input: HandoffInput): Promise<HandoffResult>
     onChunk(listener: (chunk: ChatChunk) => void): () => void

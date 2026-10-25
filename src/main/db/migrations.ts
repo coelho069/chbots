@@ -477,5 +477,10 @@ export const migrations: string[] = [
   );
   CREATE INDEX idx_mcp_tool_translations_auto_tool
     ON mcp_tool_translations_auto(server_name, tool_name);
+  `,
+  // 16: Aviso só quando resultado mudar.
   `
+ALTER TABLE routines ADD COLUMN last_output_hash TEXT;
+ALTER TABLE routines ADD COLUMN notify_only_when_changed INTEGER NOT NULL DEFAULT 0;
+`
 ]

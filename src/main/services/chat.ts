@@ -1,4 +1,4 @@
-import type { ChatChunk, Message } from '@shared/types'
+import type { Attachment, ChatChunk, Message } from '@shared/types'
 import type { Db } from '../db/connection'
 import { getAgent } from '../db/repos/agents'
 import {
@@ -10,7 +10,7 @@ import {
 } from '../db/repos/conversations'
 import { getProvider } from '../db/repos/providers'
 import type { ClientFactory } from '../llm'
-import type { ChatTurn, LlmClient, ToolDef } from '../llm/provider'
+import type { ChatTurn, ContentBlock, LlmClient, ToolDef } from '../llm/provider'
 import type { SecretStore } from '../secrets'
 import type { DelegationService } from './delegation'
 import { extractDelegations, extractManualDelegation } from './delegation'
@@ -80,7 +80,7 @@ export class ChatService {
   async send(
     conversationId: number,
     text: string,
-    opts: { fromAgentId?: number; signal?: AbortSignal; delegationDepth?: number; delegationStack?: number[] } = {}
+    opts: { fromAgentId?: number; signal?: AbortSignal; delegationDepth?: number; delegationStack?: number[]; attachments?: Attachment[] } = {}
   ): Promise<Message> {
     const { db } = this.deps
     const conversation = getConversation(db, conversationId)
@@ -112,12 +112,30 @@ export class ChatService {
     const requestStartedAt = Date.now()
     try {
       const client = this.clientFor(agent.providerId)
-      insertMessage(db, { conversationId, role: 'user', content: text, fromAgentId: opts.fromAgentId ?? null })
+      const { attachments } = opts
+      const pdfTexts = (attachments ?? []).filter((a) => a.mediaType === 'application/pdf').map((a) => `[PDF: ${a.name}]`).join(' ')
+      const finalText = pdfTexts ? `${text}\n${pdfTexts}` : text
+      insertMessage(db, { conversationId, role: 'user', content: finalText, fromAgentId: opts.fromAgentId ?? null })
       if (conversation.title === defaultTitle) setConversationTitle(db, conversationId, titleFrom(text))
 
       const history: ChatTurn[] = listMessages(db, conversationId)
         .filter((m) => m.role !== 'system')
         .map((m) => ({ role: m.role as ChatTurn['role'], content: m.content }))
+
+      // Replace last user turn with ContentBlock[] when images are attached
+      if (attachments?.length && history.length > 0) {
+        const last = history[history.length - 1]!
+        if (last.role === 'user') {
+          const userContent: ContentBlock[] = [
+            { type: 'text', text },
+            ...attachments.flatMap((a): ContentBlock[] => {
+              if (a.mediaType === 'application/pdf') return []
+              return [{ type: 'image', source: { type: 'base64', media_type: a.mediaType, data: a.data } }]
+            })
+          ]
+          history[history.length - 1] = { ...last, content: userContent }
+        }
+      }
 
       const memoryCtx = this.deps.memory?.buildContextSection(text) ?? ''
       const systemWithMemory = memoryCtx ? `${agent.systemPrompt}${memoryCtx}` : agent.systemPrompt

@@ -12,6 +12,8 @@ interface RoutineRow {
   enabled: number
   last_run_at: string | null
   created_at: string
+  last_output_hash: string | null
+  notify_only_when_changed: number
 }
 
 interface RunRow {
@@ -35,7 +37,9 @@ const toRoutine = (r: RoutineRow): Routine => ({
   handoffPrompt: r.handoff_prompt,
   enabled: r.enabled === 1,
   lastRunAt: r.last_run_at,
-  createdAt: r.created_at
+  createdAt: r.created_at,
+  lastOutputHash: r.last_output_hash,
+  notifyOnlyWhenChanged: r.notify_only_when_changed === 1
 })
 
 const toRun = (r: RunRow): RoutineRun => ({
@@ -63,20 +67,24 @@ export function getRoutine(db: Db, id: number): Routine | null {
 export function insertRoutine(db: Db, r: RoutineInput): Routine {
   const { lastInsertRowid } = db
     .prepare(
-      `INSERT INTO routines (name, cron, source_agent_id, task_prompt, target_agent_id, handoff_prompt, enabled, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO routines (name, cron, source_agent_id, task_prompt, target_agent_id, handoff_prompt, enabled, notify_only_when_changed, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
-    .run(r.name, r.cron, r.sourceAgentId, r.taskPrompt, r.targetAgentId, r.handoffPrompt, r.enabled ? 1 : 0, now())
+    .run(r.name, r.cron, r.sourceAgentId, r.taskPrompt, r.targetAgentId, r.handoffPrompt, r.enabled ? 1 : 0, r.notifyOnlyWhenChanged ? 1 : 0, now())
   return getRoutine(db, Number(lastInsertRowid))!
 }
 
 export function updateRoutine(db: Db, id: number, r: RoutineInput): Routine {
   db.prepare(
     `UPDATE routines SET name = ?, cron = ?, source_agent_id = ?, task_prompt = ?, target_agent_id = ?,
-       handoff_prompt = ?, enabled = ?
+       handoff_prompt = ?, enabled = ?, notify_only_when_changed = ?
      WHERE id = ?`
-  ).run(r.name, r.cron, r.sourceAgentId, r.taskPrompt, r.targetAgentId, r.handoffPrompt, r.enabled ? 1 : 0, id)
+  ).run(r.name, r.cron, r.sourceAgentId, r.taskPrompt, r.targetAgentId, r.handoffPrompt, r.enabled ? 1 : 0, r.notifyOnlyWhenChanged ? 1 : 0, id)
   return getRoutine(db, id)!
+}
+
+export function updateRoutineHash(db: Db, id: number, hash: string): void {
+  db.prepare('UPDATE routines SET last_output_hash = ? WHERE id = ?').run(hash, id)
 }
 
 export function deleteRoutine(db: Db, id: number): void {

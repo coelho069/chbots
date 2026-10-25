@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useRef, useState, type RefObject } from 'react'
-import type { Agent, Conversation, DelegationCard, McpApprovalRequest, McpToolCallEvent, Message } from '@shared/types'
+import type { Agent, Attachment, Conversation, DelegationCard, McpApprovalRequest, McpToolCallEvent, Message } from '@shared/types'
 import { api, formatDateTime } from '../api'
 import type { ChatTarget } from '../App'
 import { CloseButton, useCloseHandler } from '../CloseContext'
@@ -30,6 +30,7 @@ export function ChatPage({ agents, target, onOpenChat }: Props) {
   const [delegCards, setDelegCards] = useState<DelegationCard[]>([])
   const [mcpToolCalls, setMcpToolCalls] = useState<McpToolCallEvent[]>([])
   const [mcpApprovals, setMcpApprovals] = useState<McpApprovalRequest[]>([])
+  const [attachments, setAttachments] = useState<Attachment[]>([])
   const [sendError, setSendError] = useState<{ conversationId: number; content: string; message: string } | null>(null)
   const [approvalError, setApprovalError] = useState<string | null>(null)
   const [respondingApprovals, setRespondingApprovals] = useState<string[]>([])
@@ -234,6 +235,25 @@ export function ChatPage({ agents, target, onOpenChat }: Props) {
     }
   }
 
+  function addFile(file: File) {
+    if (file.size > 10 * 1024 * 1024) { toast.error('Arquivo maior que 10 MB'); return }
+    const reader = new FileReader()
+    reader.onload = () => {
+      const data = (reader.result as string).split(',')[1] ?? ''
+      setAttachments((prev) => [...prev, { name: file.name, mediaType: file.type || 'application/octet-stream', data, size: file.size }])
+    }
+    reader.readAsDataURL(file)
+  }
+
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const items = Array.from(e.clipboardData?.items ?? [])
+      items.filter((i) => i.kind === 'file').forEach((i) => { const f = i.getAsFile(); if (f) addFile(f) })
+    }
+    document.addEventListener('paste', onPaste)
+    return () => document.removeEventListener('paste', onPaste)
+  }, [])
+
   async function newConversation() {
     if (agentId === null) return
     try {
@@ -258,8 +278,9 @@ export function ChatPage({ agents, target, onOpenChat }: Props) {
       }
       setSendingConvId(id)
       setText('')
+      setAttachments([])
       setMessages((m) => [...m, optimistic(id!, content)])
-      await api.chat.send(id, content)
+      await api.chat.send(id, content, attachments.length > 0 ? attachments : undefined)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       setSendError({ conversationId: id ?? -1, content, message })
@@ -484,6 +505,25 @@ export function ChatPage({ agents, target, onOpenChat }: Props) {
             void send()
           }}
         >
+          {delegCards.filter(c => c.status === 'running').length > 0 && (
+            <div className="bg-tasks-badge">
+              {delegCards.filter(c => c.status === 'running').length} tarefa(s) em segundo plano
+            </div>
+          )}
+          <label className="attach-btn" title="Anexar arquivo (imagem ou PDF)">
+            <input type="file" accept="image/*,.pdf" multiple style={{ display: 'none' }}
+              onChange={(e) => Array.from(e.target.files ?? []).forEach(addFile)} />
+            📎
+          </label>
+          {attachments.length > 0 && (
+            <div className="attachments-preview">
+              {attachments.map((a, i) => (
+                <span key={i} className="attachment-chip">
+                  {a.name} <button type="button" onClick={() => setAttachments((p) => p.filter((_, j) => j !== i))}>×</button>
+                </span>
+              ))}
+            </div>
+          )}
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
@@ -495,7 +535,6 @@ export function ChatPage({ agents, target, onOpenChat }: Props) {
             }}
             placeholder={`Mensagem para ${agent?.name ?? ''} (Enter envia, Shift+Enter quebra linha)`}
             rows={3}
-            disabled={sending}
           />
           {sending && sendingConvId !== null && (
             <button type="button" onClick={() => void api.chat.stop(sendingConvId)}>

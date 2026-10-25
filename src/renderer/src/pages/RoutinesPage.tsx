@@ -22,7 +22,8 @@ const emptyForm = (agents: Agent[]): FormState => ({
   taskPrompt: '',
   targetAgentId: null,
   handoffPrompt: null,
-  enabled: true
+  enabled: true,
+  notifyOnlyWhenChanged: false
 })
 
 const toForm = (r: Routine): FormState => ({
@@ -32,7 +33,8 @@ const toForm = (r: Routine): FormState => ({
   taskPrompt: r.taskPrompt,
   targetAgentId: r.targetAgentId,
   handoffPrompt: r.handoffPrompt,
-  enabled: r.enabled
+  enabled: r.enabled,
+  notifyOnlyWhenChanged: r.notifyOnlyWhenChanged
 })
 
 const routineFields: (keyof FormState)[] = [
@@ -42,7 +44,8 @@ const routineFields: (keyof FormState)[] = [
   'taskPrompt',
   'targetAgentId',
   'handoffPrompt',
-  'enabled'
+  'enabled',
+  'notifyOnlyWhenChanged'
 ]
 
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -235,6 +238,15 @@ export function RoutinesPage({ agents, onGoRuns }: Props) {
           <label className="check">
             <input type="checkbox" checked={form.enabled} onChange={(e) => set('enabled', e.target.checked)} />
             Ativa
+          </label>
+
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={form.notifyOnlyWhenChanged ?? false}
+              onChange={(e) => set('notifyOnlyWhenChanged', e.target.checked)}
+            />
+            {' '}Avisar só se o resultado mudar
           </label>
 
           {selectedId !== 'new' && (

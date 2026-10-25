@@ -1,8 +1,9 @@
+import crypto from 'node:crypto'
 import cron, { type ScheduledTask } from 'node-cron'
 import type { Routine, RoutineRun } from '@shared/types'
 import type { Db } from '../db/connection'
 import { insertConversation } from '../db/repos/conversations'
-import { failStaleRuns, getRoutine, listRoutines, startRun, updateRun } from '../db/repos/routines'
+import { failStaleRuns, getRoutine, listRoutines, startRun, updateRun, updateRoutineHash } from '../db/repos/routines'
 import type { ChatService } from './chat'
 import { handoff } from './handoff'
 
@@ -10,7 +11,7 @@ export interface SchedulerDeps {
   db: Db
   chat: ChatService
   onRunsChanged: () => void
-  onRunFinished: (routine: Routine, run: RoutineRun) => void
+  onRunFinished: (routine: Routine, run: RoutineRun, outputChanged: boolean) => void
   schedule?: typeof cron.schedule
 }
 
@@ -63,6 +64,7 @@ export class Scheduler {
   private async execute(routine: Routine, run: RoutineRun): Promise<RoutineRun> {
     const { db, chat } = this.deps
     let result: RoutineRun
+    let outputChanged = true
     try {
       const stamp = new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
       const source = insertConversation(db, routine.sourceAgentId, 'routine', `${routine.name} · ${stamp}`)
@@ -70,6 +72,10 @@ export class Scheduler {
       this.deps.onRunsChanged()
 
       const reply = await chat.send(source.id, routine.taskPrompt)
+
+      const outputHash = crypto.createHash('sha256').update(reply.content).digest('hex')
+      outputChanged = routine.lastOutputHash !== outputHash
+      if (outputChanged) updateRoutineHash(db, routine.id, outputHash)
 
       if (routine.targetAgentId !== null) {
         const target = await handoff(db, chat, {
@@ -86,7 +92,7 @@ export class Scheduler {
       result = updateRun(db, run.id, { status: 'error', error: err instanceof Error ? err.message : String(err) })
     }
     this.deps.onRunsChanged()
-    this.deps.onRunFinished(routine, result)
+    this.deps.onRunFinished(routine, result, outputChanged)
     return result
   }
 }

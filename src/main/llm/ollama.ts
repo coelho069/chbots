@@ -1,4 +1,4 @@
-import { ensureOk, LlmError, readLines, trimSlash, type ChatRequest, type ChatResult, type LlmClient } from './provider'
+import { ensureOk, LlmError, readLines, trimSlash, type ChatRequest, type ChatResult, type ContentBlock, type LlmClient } from './provider'
 
 interface Line {
   message?: { content?: string }
@@ -13,7 +13,15 @@ export class OllamaClient implements LlmClient {
   constructor(private readonly baseUrl: string) {}
 
   async chat(req: ChatRequest, onDelta: (delta: string) => void): Promise<ChatResult> {
-    const messages = [...(req.system ? [{ role: 'system', content: req.system }] : []), ...req.messages]
+    const messages = [
+      ...(req.system ? [{ role: 'system', content: req.system }] : []),
+      ...req.messages.map((m) => ({
+        ...m,
+        content: Array.isArray(m.content)
+          ? (m.content as ContentBlock[]).filter((b) => b.type === 'text').map((b) => (b as { type: 'text'; text: string }).text).join(' ')
+          : m.content
+      }))
+    ]
     const res = await fetch(`${trimSlash(this.baseUrl)}/api/chat`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
