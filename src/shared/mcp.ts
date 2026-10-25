@@ -54,6 +54,7 @@ export type McpApprovalMap = Record<string, McpToolApproval>
 export interface McpApprovalRequest {
   requestId: string
   conversationId: number
+  agentId?: number
   serverName: string
   toolName: string
   args: Record<string, unknown>

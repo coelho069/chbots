@@ -211,7 +211,16 @@ if (!app.requestSingleInstanceLock()) {
     const mcpTranslation = new McpTranslationService(db, chat)
     const mcpService = new McpService({
       onStatusChanged: () => send(events.mcpStatusChanged),
-      onApprovalRequest: (req) => send(events.mcpApprovalRequest, req),
+      onApprovalRequest: (req) => {
+        send(events.mcpApprovalRequest, req)
+        if (process.platform === 'win32' && (!mainWindow || mainWindow.isMinimized() || !mainWindow.isVisible()) && Notification.isSupported()) {
+          new Notification({
+            title: 'Aprovação MCP necessária',
+            body: `${req.serverName}.${req.toolName} aguarda sua decisão.`,
+            icon: iconPath
+          }).show()
+        }
+      },
       onToolCall: (event) => send(events.mcpToolCall, event),
       onOfficeEvent: (ev) => officeIpc.emit(ev),
       translateTools: (serverName, tools) => mcpTranslation.translate(serverName, tools)

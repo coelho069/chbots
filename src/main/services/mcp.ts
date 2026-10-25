@@ -28,12 +28,26 @@ interface Entry {
   reconnectTimer?: ReturnType<typeof setTimeout>
 }
 
+interface CapabilitiesSnapshot {
+  tools: McpToolDef[]
+  resources: { uri: string; name: string; description?: string }[]
+  prompts: { name: string; description?: string }[]
+}
+
 // Pending approval: resolve(true/false) when renderer responds.
-interface PendingApproval { resolve: (approved: boolean) => void; timer: ReturnType<typeof setTimeout>; startedAt: number }
+interface PendingApproval {
+  resolve: (approved: boolean) => void
+  timer: ReturnType<typeof setTimeout>
+  startedAt: number
+  request: McpApprovalRequest
+  agentId?: number
+}
 
 export class McpService {
   private readonly entries = new Map<string, Entry>()
   private readonly pending = new Map<string, PendingApproval>()
+  private readonly approvalAllConversations = new Set<number>()
+  private readonly capabilitiesCache = new Map<string, CapabilitiesSnapshot>()
 
   constructor(private readonly deps: McpServiceDeps) {}
 
@@ -169,6 +183,14 @@ export class McpService {
   private async refreshCapabilities(name: string): Promise<void> {
     const entry = this.entries.get(name)
     if (!entry?.client) return
+    const cached = this.capabilitiesCache.get(name)
+    if (cached) {
+      entry.info.tools = cached.tools.map((tool) => ({ ...tool }))
+      entry.info.resources = cached.resources.map((resource) => ({ ...resource }))
+      entry.info.prompts = cached.prompts.map((prompt) => ({ ...prompt }))
+      console.info(`[MCP] listTools server=${name} status=cache-hit tools=${entry.info.tools.length}`)
+      return
+    }
     const startedAt = Date.now()
     try {
       const [toolsRes, resourcesRes, promptsRes] = await Promise.allSettled([
@@ -189,6 +211,11 @@ export class McpService {
       entry.info.prompts = promptsRes.status === 'fulfilled'
         ? (promptsRes.value.prompts ?? []).map((p) => ({ name: p.name, description: p.description }))
         : []
+      this.capabilitiesCache.set(name, {
+        tools: entry.info.tools.map((tool) => ({ ...tool })),
+        resources: entry.info.resources.map((resource) => ({ ...resource })),
+        prompts: entry.info.prompts.map((prompt) => ({ ...prompt }))
+      })
       console.info(`[MCP] listTools server=${name} status=${toolsRes.status} durationMs=${Date.now() - startedAt} tools=${entry.info.tools.length}`)
     } catch (error) {
       console.warn(`[MCP] listTools server=${name} status=error durationMs=${Date.now() - startedAt} error=${error instanceof Error ? error.message : String(error)}`)
@@ -228,11 +255,12 @@ export class McpService {
 
     const conversationId = opts.conversationId ?? 0
 
-    if (opts.requireApproval) {
+    const conversationAlreadyApproved = opts.conversationId != null && this.approvalAllConversations.has(conversationId)
+    if (opts.requireApproval && !conversationAlreadyApproved) {
       if (opts.botId != null) {
         this.deps.onOfficeEvent?.({ botId: opts.botId, state: 'approval', tool: toolName, ts: Date.now() })
       }
-      const approved = await this.requestApproval({ serverName, toolName, args, conversationId })
+      const approved = await this.requestApproval({ serverName, toolName, args, conversationId }, opts.botId)
       if (!approved) {
         if (opts.conversationId != null) {
           this.deps.onToolCall({ conversationId, serverName, toolName, args, status: 'denied' })
@@ -273,7 +301,7 @@ export class McpService {
     }
   }
 
-  private requestApproval(req: Omit<McpApprovalRequest, 'requestId'>): Promise<boolean> {
+  private requestApproval(req: Omit<McpApprovalRequest, 'requestId'>, agentId?: number): Promise<boolean> {
     return new Promise<boolean>((resolve) => {
       const requestId = randomUUID()
       const startedAt = Date.now()
@@ -283,8 +311,9 @@ export class McpService {
         console.info(`[MCP] aprovação expirada para ${req.serverName}.${req.toolName} após ${Date.now() - startedAt}ms`)
         resolve(false)
       }, TOOL_TIMEOUT_MS)
-      this.pending.set(requestId, { resolve, timer, startedAt })
-      this.deps.onApprovalRequest({ requestId, ...req })
+      const request = { requestId, ...req }
+      this.pending.set(requestId, { resolve, timer, startedAt, request, agentId })
+      this.deps.onApprovalRequest({ ...request, agentId })
     })
   }
 
@@ -295,6 +324,31 @@ export class McpService {
     this.pending.delete(requestId)
     console.info(`[MCP] aprovação ${approved ? 'concedida' : 'negada'} após ${Date.now() - p.startedAt}ms`)
     p.resolve(approved)
+  }
+
+  listPendingApprovals(): (McpApprovalRequest & { agentId?: number })[] {
+    return [...this.pending.values()].map((pending) => ({ ...pending.request, agentId: pending.agentId }))
+  }
+
+  respondApprovals(approved: boolean, filter?: (pending: PendingApproval) => boolean): number {
+    const matches = [...this.pending.entries()].filter(([, pending]) => !filter || filter(pending))
+    for (const [requestId, pending] of matches) {
+      clearTimeout(pending.timer)
+      this.pending.delete(requestId)
+      pending.resolve(approved)
+    }
+    if (matches.length) console.info(`[MCP] aprovações em lote=${matches.length} decisão=${approved ? 'aprovar' : 'recusar'}`)
+    return matches.length
+  }
+
+  setConversationApproval(conversationId: number, approved: boolean): number {
+    if (approved) this.approvalAllConversations.add(conversationId)
+    else this.approvalAllConversations.delete(conversationId)
+    return this.respondApprovals(approved, (pending) => pending.request.conversationId === conversationId)
+  }
+
+  respondApprovalForTool(agentId: number, serverName: string, toolName: string, approved: boolean): number {
+    return this.respondApprovals(approved, (pending) => pending.agentId === agentId && pending.request.serverName === serverName && pending.request.toolName === toolName)
   }
 
   async stopAll(): Promise<void> {

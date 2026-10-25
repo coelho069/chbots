@@ -70,7 +70,7 @@ import type { ChatService } from './services/chat'
 import type { DelegationService } from './services/delegation'
 import { delegationConfigInput, mcpServerAddInput, mcpApprovalInput } from '@shared/schemas'
 import { clearAllCache, getCacheStats } from './db/repos/cache'
-import { getApprovals, logMcpCall, setApproval } from './db/repos/mcp'
+import { getApprovals, logMcpCall, removeApproval, setApproval } from './db/repos/mcp'
 import { getMcpTranslation, saveMcpTranslation } from './db/repos/mcpTranslations'
 import { clearMcpAutoTranslations } from './db/repos/mcpAutoTranslations'
 import type { McpService } from './services/mcp'
@@ -501,6 +501,23 @@ export function registerIpc(ctx: IpcContext): void {
     mcpService.respondApproval(requestId, approved)
   })
 
+  handle(channels.mcpApprovalConversation, (rawConversationId, rawApproved) => {
+    const conversationId = id(rawConversationId)
+    const approved = z.boolean().parse(rawApproved)
+    return mcpService.setConversationApproval(conversationId, approved)
+  })
+
+  handle(channels.mcpApprovalAll, (rawApproved) => mcpService.respondApprovals(z.boolean().parse(rawApproved)))
+  handle(channels.mcpApprovalPending, () => mcpService.listPendingApprovals())
+
+  handle(channels.mcpApprovalAlwaysAllow, (rawAgentId, rawServer, rawTool) => {
+    const agentId = id(rawAgentId)
+    const serverName = z.string().min(1).max(80).parse(rawServer)
+    const toolName = z.string().min(1).max(200).parse(rawTool)
+    setApproval(db, agentId, serverName, toolName, 'allow')
+    mcpService.respondApprovalForTool(agentId, serverName, toolName, true)
+  })
+
   handle(channels.mcpGetApprovals, (rawAgentId) => getApprovals(db, id(rawAgentId)))
 
   handle(channels.mcpSetApproval, (rawAgentId, rawServer, rawTool, rawApproval) => {
@@ -509,6 +526,13 @@ export function registerIpc(ctx: IpcContext): void {
     const toolName = z.string().min(1).max(200).parse(rawTool)
     const approval = z.enum(['ask', 'allow', 'block']).parse(rawApproval) as McpToolApproval
     setApproval(db, agentId, serverName, toolName, approval)
+  })
+
+  handle(channels.mcpRemoveApproval, (rawAgentId, rawServer, rawTool) => {
+    const agentId = id(rawAgentId)
+    const serverName = z.string().min(1).max(80).parse(rawServer)
+    const toolName = z.string().min(1).max(200).parse(rawTool)
+    removeApproval(db, agentId, serverName, toolName)
   })
 
   handle(channels.settingsDataDir, () => ctx.dataDir)

@@ -19,3 +19,14 @@ export function setApproval(db: Db, agentId: number, serverName: string, toolNam
     ON CONFLICT(agent_id, server_name, tool_name) DO UPDATE SET approval = excluded.approval`)
     .run(agentId, serverName, toolName, approval)
 }
+
+export function removeApproval(db: Db, agentId: number, serverName: string, toolName: string): void {
+  db.prepare('DELETE FROM mcp_approvals WHERE agent_id = ? AND server_name = ? AND tool_name = ?')
+    .run(agentId, serverName, toolName)
+}
+
+export function listApprovalRules(db: Db, agentId: number): { serverName: string; toolName: string; approval: McpToolApproval }[] {
+  const rows = db.prepare('SELECT server_name, tool_name, approval FROM mcp_approvals WHERE agent_id = ? ORDER BY server_name, tool_name')
+    .all(agentId) as { server_name: string; tool_name: string; approval: McpToolApproval }[]
+  return rows.map((row) => ({ serverName: row.server_name, toolName: row.tool_name, approval: row.approval }))
+}

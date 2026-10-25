@@ -596,6 +596,33 @@ label.check {
 }
 .delegation-section { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
 .error-text { color: #d04f4f; }
+.mcp-approval-dock {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  margin: 0 14px 10px;
+  padding: 10px;
+  border: 2px solid #d4a62a;
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 -8px 24px color-mix(in srgb, var(--bg) 55%, transparent);
+}
+.mcp-approval-banner { display: flex; align-items: center; gap: 10px; color: #d4a62a; margin-bottom: 8px; }
+.mcp-approval-banner > span:nth-child(2) { font-weight: 600; }
+.mcp-approval-top-warning { margin-left: auto; padding: 4px 8px; border-radius: 6px; color: #f3c64d; background: color-mix(in srgb, #d4a62a 18%, transparent); font-weight: 700; }
+.mcp-approval-actions, .mcp-approval-card-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.mcp-approval-actions { margin-bottom: 8px; }
+.mcp-approval-list { display: flex; flex-direction: column; gap: 8px; max-height: min(38vh, 360px); overflow-y: auto; }
+.mcp-approval-card { border: 1px solid color-mix(in srgb, #d4a62a 70%, var(--border)); border-radius: 8px; background: color-mix(in srgb, #d4a62a 7%, var(--surface)); }
+.mcp-approval-card-header { display: flex; align-items: center; gap: 8px; padding: 8px 10px; }
+.mcp-approval-card-header strong { color: #d4a62a; }
+.mcp-approval-card-body { display: flex; flex-direction: column; gap: 8px; padding: 8px 10px 10px; border-top: 1px solid var(--border); }
+.mcp-approval-args { margin: 0; max-height: 110px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.78rem; }
+.mcp-always-approved { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.mcp-risk-warning { margin: 6px 0; padding: 8px; border-radius: 6px; color: #d4a62a; background: color-mix(in srgb, #d4a62a 10%, transparent); font-size: 0.82rem; }
+.mcp-risk-warning-danger { color: #ff7777; background: color-mix(in srgb, #d04f4f 14%, transparent); border: 1px solid #d04f4f; }
+.mcp-always-approved-list { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 0; padding: 0; list-style: none; }
+.mcp-always-approved-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; }
 .handoff {
   margin-top: 10px;
   padding-top: 10px;

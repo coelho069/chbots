@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import type { Agent, Conversation, DelegationCard, McpApprovalRequest, McpToolCallEvent, Message } from '@shared/types'
 import { api, formatDateTime } from '../api'
 import type { ChatTarget } from '../App'
@@ -28,10 +28,12 @@ export function ChatPage({ agents, target, onOpenChat }: Props) {
   const [handoffFor, setHandoffFor] = useState<number | null>(null)
   const [delegCards, setDelegCards] = useState<DelegationCard[]>([])
   const [mcpToolCalls, setMcpToolCalls] = useState<McpToolCallEvent[]>([])
-  const [mcpApproval, setMcpApproval] = useState<McpApprovalRequest | null>(null)
+  const [mcpApprovals, setMcpApprovals] = useState<McpApprovalRequest[]>([])
   const [sendError, setSendError] = useState<{ conversationId: number; content: string; message: string } | null>(null)
   const [approvalError, setApprovalError] = useState<string | null>(null)
+  const [respondingApprovals, setRespondingApprovals] = useState<string[]>([])
   const bottomRef = useRef<HTMLDivElement>(null)
+  const approvalFocusRef = useRef<HTMLButtonElement>(null)
 
   const clearDraft = useCallback(
     (id: number) =>
@@ -67,7 +69,7 @@ export function ChatPage({ agents, target, onOpenChat }: Props) {
 
   const loadMore = useCallback(async () => {
     if (conversationId === null || messages.length === 0) return
-    const older = await api.conversations.messages(conversationId, messages[0].id)
+    const older = await api.conversations.messages(conversationId, messages[0]!.id)
     setMessages((prev) => [...older, ...prev])
     setHasMore(older.length === 50)
   }, [conversationId, messages])
@@ -139,7 +141,6 @@ export function ChatPage({ agents, target, onOpenChat }: Props) {
   useEffect(() => {
     setDelegCards([])
     setMcpToolCalls([])
-    setMcpApproval(null)
     setApprovalError(null)
     setSendError(null)
   }, [conversationId])
@@ -157,13 +158,80 @@ export function ChatPage({ agents, target, onOpenChat }: Props) {
 
   // Pedido de aprovação MCP
   useEffect(() => api.mcp.onApprovalRequest((req) => {
-    if (req.conversationId !== conversationId) return
-    setMcpApproval(req)
-  }), [conversationId])
+    setMcpApprovals((prev) => prev.some((item) => item.requestId === req.requestId) ? prev : [...prev, req])
+  }), [])
+
+  useEffect(() => {
+    void api.mcp.pendingApprovals().then((pending) => {
+      setMcpApprovals(pending)
+    }).catch(() => undefined)
+  }, [])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: 'end' })
   }, [messages, drafts, conversationId])
+
+  const conversationApprovals = mcpApprovals.filter((req) => req.conversationId === conversationId)
+  const visibleApprovals = mcpApprovals
+
+  useEffect(() => {
+    if (visibleApprovals.length > 0) {
+      approvalFocusRef.current?.focus()
+      approvalFocusRef.current?.scrollIntoView({ block: 'nearest' })
+    }
+  }, [visibleApprovals.length])
+
+  async function respondApproval(req: McpApprovalRequest, approved: boolean) {
+    setApprovalError(null)
+    setRespondingApprovals((prev) => [...prev, req.requestId])
+    try {
+      await api.mcp.approvalRespond(req.requestId, approved)
+      setMcpApprovals((prev) => prev.filter((item) => item.requestId !== req.requestId))
+    } catch (err) {
+      setApprovalError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setRespondingApprovals((prev) => prev.filter((id) => id !== req.requestId))
+    }
+  }
+
+  async function respondMany(requests: McpApprovalRequest[], approved: boolean) {
+    if (requests.length === 0) return
+    setApprovalError(null)
+    const ids = requests.map((req) => req.requestId)
+    setRespondingApprovals((prev) => [...new Set([...prev, ...ids])])
+    const results = await Promise.allSettled(requests.map((req) => api.mcp.approvalRespond(req.requestId, approved)))
+    const completed = new Set(requests.filter((_, index) => results[index]?.status === 'fulfilled').map((req) => req.requestId))
+    setMcpApprovals((prev) => prev.filter((req) => !completed.has(req.requestId)))
+    const failed = results.find((result) => result.status === 'rejected')
+    if (failed?.status === 'rejected') setApprovalError(failed.reason instanceof Error ? failed.reason.message : String(failed.reason))
+    setRespondingApprovals((prev) => prev.filter((id) => !ids.includes(id)))
+  }
+
+  async function approveConversation() {
+    if (conversationId === null) return
+    setApprovalError(null)
+    try {
+      await api.mcp.approveConversation(conversationId, true)
+      setMcpApprovals((prev) => prev.filter((req) => req.conversationId !== conversationId))
+    } catch (err) {
+      setApprovalError(err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  async function alwaysAllow(req: McpApprovalRequest) {
+    const targetAgentId = req.agentId ?? agentId
+    if (targetAgentId === null) return
+    setApprovalError(null)
+    setRespondingApprovals((prev) => [...prev, req.requestId])
+    try {
+      await api.mcp.alwaysAllow(targetAgentId, req.serverName, req.toolName)
+      setMcpApprovals((prev) => prev.filter((item) => item.requestId !== req.requestId))
+    } catch (err) {
+      setApprovalError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setRespondingApprovals((prev) => prev.filter((id) => id !== req.requestId))
+    }
+  }
 
   async function newConversation() {
     if (agentId === null) return
@@ -260,7 +328,7 @@ export function ChatPage({ agents, target, onOpenChat }: Props) {
   const draft = conversationId !== null ? drafts[conversationId] : undefined
   const waiting = sending && draft === undefined
   const activeMcpCall = mcpToolCalls.find((event) => event.status === 'calling')
-  const waitingLabel = mcpApproval
+  const waitingLabel = visibleApprovals.length > 0
     ? 'Aguardando aprovação…'
     : activeMcpCall
       ? `Chamando ${activeMcpCall.toolName}…`
@@ -312,6 +380,7 @@ export function ChatPage({ agents, target, onOpenChat }: Props) {
           {agent && <span className="dot" style={{ background: agent.color }} />}
           <strong>{agent?.name}</strong>
           <span className="muted">{agent?.model}</span>
+          {visibleApprovals.length > 0 && <span className="mcp-approval-top-warning" role="status">Aguardando sua aprovação ({visibleApprovals.length})</span>}
           {conversationId !== null && <CloseButton label="Fechar conversa" />}
         </header>
 
@@ -343,23 +412,6 @@ export function ChatPage({ agents, target, onOpenChat }: Props) {
           {mcpToolCalls.map((ev, i) => (
             <McpToolCallCard key={i} event={ev} />
           ))}
-          {mcpApproval && (
-            <McpApprovalCard
-              req={mcpApproval}
-              onRespond={async (approved) => {
-                setApprovalError(null)
-                try {
-                  await api.mcp.approvalRespond(mcpApproval.requestId, approved)
-                  setMcpApproval(null)
-                } catch (err) {
-                  const message = err instanceof Error ? err.message : String(err)
-                  setApprovalError(message)
-                  throw err
-                }
-              }}
-              error={approvalError}
-            />
-          )}
           {draft !== undefined && (
             <div className="bubble assistant streaming">
               <div className="bubble-text">{draft}</div>
@@ -382,6 +434,47 @@ export function ChatPage({ agents, target, onOpenChat }: Props) {
           )}
           <div ref={bottomRef} />
         </div>
+
+        {visibleApprovals.length > 0 && (
+          <section
+            className="mcp-approval-dock"
+            aria-label="Aprovações MCP pendentes"
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') {
+                event.preventDefault()
+                void respondApproval(visibleApprovals[0]!, false)
+              }
+              if (event.key === 'Enter' && event.target === event.currentTarget) {
+                event.preventDefault()
+                void respondApproval(visibleApprovals[0]!, true)
+              }
+            }}
+          >
+            <div className="mcp-approval-banner" role="status">
+              <strong>⚠ Aprovação necessária</strong>
+              <span>{visibleApprovals.length} {visibleApprovals.length === 1 ? 'chamada pendente' : 'chamadas pendentes'}</span>
+              <span className="muted small">Enter aprova · Esc recusa</span>
+            </div>
+            <div className="mcp-approval-actions">
+              <button className="primary" onClick={() => void approveConversation()} disabled={respondingApprovals.length > 0 || conversationApprovals.length === 0}>Aprovar todos desta conversa ({conversationApprovals.length})</button>
+              <button onClick={() => void respondMany(mcpApprovals, true)} disabled={respondingApprovals.length > 0}>Aprovar todas pendentes ({mcpApprovals.length})</button>
+              <button className="danger" onClick={() => void respondMany(mcpApprovals, false)} disabled={respondingApprovals.length > 0}>Recusar todas</button>
+            </div>
+            {approvalError && <div className="error-text" role="alert">Não foi possível registrar uma decisão: {approvalError}</div>}
+            <div className="mcp-approval-list">
+              {visibleApprovals.map((req, index) => (
+                <McpApprovalCard
+                  key={req.requestId}
+                  req={req}
+                  onRespond={(approved) => void respondApproval(req, approved)}
+                  responding={respondingApprovals.includes(req.requestId)}
+                  approveRef={index === 0 ? approvalFocusRef : undefined}
+                  onAlwaysAllow={() => void alwaysAllow(req)}
+                />
+              ))}
+            </div>
+          </section>
+        )}
 
         <form
           className="composer"
@@ -519,31 +612,28 @@ function McpToolCallCard({ event: ev }: { event: McpToolCallEvent }) {
   )
 }
 
-function McpApprovalCard({ req, onRespond, error }: { req: McpApprovalRequest; onRespond: (approved: boolean) => Promise<void>; error: string | null }) {
-  const [done, setDone] = useState(false)
-  const [responding, setResponding] = useState(false)
-  async function respond(approved: boolean) {
-    setResponding(true)
-    try { await onRespond(approved); setDone(true) } catch { /* o erro permanece visível no card */ } finally { setResponding(false) }
-  }
+function McpApprovalCard({ req, onRespond, responding, approveRef, onAlwaysAllow }: { req: McpApprovalRequest; onRespond: (approved: boolean) => void; responding: boolean; approveRef?: RefObject<HTMLButtonElement | null>; onAlwaysAllow: () => void }) {
+  const [showArgs, setShowArgs] = useState(false)
+  const summary = JSON.stringify(req.args)
+  const dangerous = /(?:write_file|edit_file|move_file|git_commit|delete|remove|unlink|erase)/i.test(req.toolName)
   return (
-    <div className="delegation-card status-running">
-      <div className="delegation-header" style={{ cursor: 'default' }}>
-        <span>🔐 Aprovação necessária: <strong>{req.toolName}</strong> @ {req.serverName}</span>
+    <div className="mcp-approval-card" data-request-id={req.requestId}>
+      <div className="mcp-approval-card-header">
+        <span>🔐 <strong>{req.toolName}</strong> @ {req.serverName}</span>
+        <span className="delegation-meta">pendente</span>
       </div>
-      <div className="delegation-body">
+      <div className="mcp-approval-card-body">
         <div className="delegation-section">
           <span className="muted small">Argumentos</span>
-          <pre style={{ margin: 0, fontSize: '0.8rem' }}>{JSON.stringify(req.args, null, 2)}</pre>
+          <pre className="mcp-approval-args">{showArgs ? JSON.stringify(req.args, null, 2) : summary.length > 180 ? `${summary.slice(0, 180)}…` : summary}</pre>
+          {summary.length > 180 && <button className="link small" onClick={() => setShowArgs((open) => !open)}>{showArgs ? 'Ver menos' : 'Ver tudo'}</button>}
         </div>
-        {error && <div className="error-text" role="alert">Não foi possível registrar a decisão: {error}</div>}
-        {!done && (
-          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-            <button onClick={() => void respond(true)} className="primary" disabled={responding}>{responding ? 'Enviando...' : 'Aprovar'}</button>
-            <button onClick={() => void respond(false)} className="danger" disabled={responding}>Negar</button>
-          </div>
-        )}
-        {done && <span className="muted small">Respondido</span>}
+        {dangerous && <div className="mcp-risk-warning mcp-risk-warning-danger" role="alert">Atenção: esta ferramenta pode alterar ou apagar dados. Só marque como sempre aprovada se confiar nela.</div>}
+        <div className="mcp-approval-card-actions">
+          <button ref={approveRef} onClick={() => onRespond(true)} className="primary" disabled={responding}>{responding ? 'Enviando…' : 'Aprovar'}</button>
+          <button onClick={() => onRespond(false)} className="danger" disabled={responding}>Recusar</button>
+          <button onClick={onAlwaysAllow} disabled={responding} title="Salva esta permissão no agente">Sempre aprovar esta ferramenta neste agente</button>
+        </div>
       </div>
     </div>
   )

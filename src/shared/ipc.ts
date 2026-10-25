@@ -87,8 +87,13 @@ export const channels = {
   mcpRetranslateAll: 'mcp:retranslate-all',
   mcpImport: 'mcp:import',
   mcpApprovalRespond: 'mcp:approval-respond',
+  mcpApprovalConversation: 'mcp:approval-conversation',
+  mcpApprovalAll: 'mcp:approval-all',
+  mcpApprovalPending: 'mcp:approval-pending',
+  mcpApprovalAlwaysAllow: 'mcp:approval-always-allow',
   mcpGetApprovals: 'mcp:get-approvals',
   mcpSetApproval: 'mcp:set-approval',
+  mcpRemoveApproval: 'mcp:remove-approval',
   // ---- Escritório ----
   escritorioGetEstado: 'escritorio:getEstado'
 } as const

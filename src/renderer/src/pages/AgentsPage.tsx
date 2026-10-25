@@ -44,6 +44,7 @@ export function AgentsPage({ agents, providers, draft, onDraftUsed, onChanged, o
   const [saving, setSaving] = useState(false)
   const [delCfg, setDelCfg] = useState<DelegationConfig | null>(null)
   const [mcpServers, setMcpServers] = useState<McpServerInfo[]>([])
+  const [alwaysApproved, setAlwaysApproved] = useState<{ serverName: string; toolName: string }[]>([])
 
   useEffect(() => {
     if (draft) onDraftUsed?.()
@@ -72,6 +73,21 @@ export function AgentsPage({ agents, providers, draft, onDraftUsed, onChanged, o
   useEffect(() => setModels([]), [form.providerId])
 
   useEffect(() => { api.mcp.list().then(setMcpServers).catch(() => undefined) }, [])
+
+  useEffect(() => {
+    if (typeof selectedId !== 'number') {
+      setAlwaysApproved([])
+      return
+    }
+    void api.mcp.getApprovals(selectedId).then((approvals) => {
+      setAlwaysApproved(Object.entries(approvals)
+        .filter(([, value]) => value === 'allow')
+        .map(([key]) => {
+          const separator = key.lastIndexOf('::')
+          return { serverName: key.slice(0, separator), toolName: key.slice(separator + 2) }
+        }))
+    }).catch(() => setAlwaysApproved([]))
+  }, [selectedId])
 
   // Ctrl+B: fecha o agente em edição; no formulário de novo agente não há item aberto (volta ao início).
   useCloseHandler(async () => {
@@ -150,6 +166,16 @@ export function AgentsPage({ agents, providers, draft, onDraftUsed, onChanged, o
       await api.agents.remove(id)
       await onChanged()
       setSelectedId('new')
+    } catch (err) {
+      toast.error(err)
+    }
+  }
+
+  async function removeAlwaysApproved(item: { serverName: string; toolName: string }) {
+    if (typeof selectedId !== 'number') return
+    try {
+      await api.mcp.setApproval(selectedId, item.serverName, item.toolName, 'ask')
+      setAlwaysApproved((prev) => prev.filter((entry) => entry.serverName !== item.serverName || entry.toolName !== item.toolName))
     } catch (err) {
       toast.error(err)
     }
@@ -374,6 +400,30 @@ export function AgentsPage({ agents, providers, draft, onDraftUsed, onChanged, o
                 ))}
               </div>
             </details>
+          )}
+
+          {editing && (
+            <section className="mcp-always-approved" aria-labelledby="mcp-always-approved-title">
+              <div className="row-between">
+                <strong id="mcp-always-approved-title">Ferramentas sempre aprovadas</strong>
+                <span className="tag">{alwaysApproved.length}</span>
+              </div>
+              <p className="mcp-risk-warning" role="note">
+                ⚠ Estas ferramentas podem ser executadas sem pedir confirmação. Remova permissões que não sejam necessárias.
+              </p>
+              {alwaysApproved.length === 0 ? (
+                <p className="muted small">Nenhuma ferramenta configurada como sempre aprovada.</p>
+              ) : (
+                <ul className="mcp-always-approved-list">
+                  {alwaysApproved.map((item) => (
+                    <li key={`${item.serverName}::${item.toolName}`}>
+                      <span><strong>{item.toolName}</strong> <span className="muted">@ {item.serverName}</span></span>
+                      <button type="button" className="danger small" onClick={() => void removeAlwaysApproved(item)}>Remover</button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
           )}
 
           <div className="actions">

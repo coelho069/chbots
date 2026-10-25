@@ -407,8 +407,13 @@ export interface PilotosApi {
     retranslateAll(): Promise<void>
     importConfig(): Promise<McpServerInfo[]>
     approvalRespond(requestId: string, approved: boolean): Promise<void>
+    approveConversation(conversationId: number, approved: boolean): Promise<number>
+    approveAllPending(approved: boolean): Promise<number>
+    pendingApprovals(): Promise<(McpApprovalRequest & { agentId?: number })[]>
+    alwaysAllow(agentId: number, serverName: string, toolName: string): Promise<void>
     getApprovals(agentId: number): Promise<McpApprovalMap>
     setApproval(agentId: number, serverName: string, toolName: string, value: string): Promise<void>
+    removeApproval(agentId: number, serverName: string, toolName: string): Promise<void>
     onStatusChanged(listener: () => void): () => void
     onApprovalRequest(listener: (req: McpApprovalRequest) => void): () => void
     onToolCall(listener: (event: McpToolCallEvent) => void): () => void

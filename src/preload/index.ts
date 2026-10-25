@@ -133,8 +133,13 @@ const api: PilotosApi = {
     retranslateAll: () => invoke(c.mcpRetranslateAll),
     importConfig: () => invoke(c.mcpImport),
     approvalRespond: (requestId, approved) => invoke(c.mcpApprovalRespond, requestId, approved),
+    approveConversation: (conversationId, approved) => invoke(c.mcpApprovalConversation, conversationId, approved),
+    approveAllPending: (approved) => invoke(c.mcpApprovalAll, approved),
+    pendingApprovals: () => invoke(c.mcpApprovalPending),
+    alwaysAllow: (agentId, serverName, toolName) => invoke(c.mcpApprovalAlwaysAllow, agentId, serverName, toolName),
     getApprovals: (agentId) => invoke(c.mcpGetApprovals, agentId),
     setApproval: (agentId, serverName, toolName, value) => invoke(c.mcpSetApproval, agentId, serverName, toolName, value),
+    removeApproval: (agentId, serverName, toolName) => invoke(c.mcpRemoveApproval, agentId, serverName, toolName),
     onStatusChanged: (listener) => subscribe<void>(events.mcpStatusChanged, () => listener()),
     onApprovalRequest: (listener) => subscribe<McpApprovalRequest>(events.mcpApprovalRequest, listener),
     onToolCall: (listener) => subscribe<McpToolCallEvent>(events.mcpToolCall, listener)
