@@ -912,3 +912,15 @@ button.link.danger-link {
 .mg-chip { padding: 2px 9px; border-radius: 999px; font-size: 12px; }
 .mg-chip.active { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
 
+
+/* Office mode */
+.office-wrap { display: flex; flex-direction: column; height: 100%; background: #12131a; }
+.office-toolbar { display: flex; align-items: center; gap: 0.75rem; padding: 0.4rem 0.75rem; background: #1a1b26; border-bottom: 1px solid #2a2b3a; flex-wrap: wrap; }
+.office-scene { position: relative; flex: 1; overflow: hidden; cursor: grab; }
+.office-scene:active { cursor: grabbing; }
+.office-canvas { display: block; }
+.office-panel { position: absolute; top: 12px; right: 12px; width: 220px; background: #1e2030; border: 1px solid #3a3b4a; border-radius: 8px; display: flex; flex-direction: column; gap: 0; z-index: 10; }
+.office-panel-head { display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 0.75rem; border-bottom: 1px solid #2a2b3a; }
+.office-panel-body { padding: 0.6rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.office-panel-row { display: flex; justify-content: space-between; align-items: center; }
+.office-panel-actions { display: flex; gap: 0.5rem; padding: 0.6rem 0.75rem; border-top: 1px solid #2a2b3a; }

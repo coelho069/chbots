@@ -252,6 +252,7 @@ export interface DelegationCard {
 // Tipos das entradas; os validadores ficam em schemas.ts (só o main carrega o zod).
 export type { AgentInput, HandoffInput, PromptGenerateInput, ProviderInput, RoutineInput }
 export type { McpApprovalMap, McpApprovalRequest, McpCallResult, McpServerInfo, McpToolRef }
+export type { BotActivityState, BotDeskState, OfficeEvent } from './office'
 
 // ---- Eventos enviados do main para o renderer ----
 
@@ -409,5 +410,9 @@ export interface PilotosApi {
     onStatusChanged(listener: () => void): () => void
     onApprovalRequest(listener: (req: McpApprovalRequest) => void): () => void
     onToolCall(listener: (event: McpToolCallEvent) => void): () => void
+  }
+  office: {
+    onEvent(listener: (evs: import('./office').OfficeEvent[]) => void): () => void
+    getEstado(): Promise<import('./office').BotDeskState[]>
   }
 }

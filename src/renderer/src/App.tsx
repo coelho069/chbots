@@ -17,8 +17,9 @@ const RoutinesPage  = lazy(() => import('./pages/RoutinesPage').then((m) => ({ d
 const RunsPage      = lazy(() => import('./pages/RunsPage').then((m) => ({ default: m.RunsPage })))
 const SettingsPage  = lazy(() => import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 const McpPage       = lazy(() => import('./pages/McpPage').then((m) => ({ default: m.McpPage })))
+const OfficePage    = lazy(() => import('./pages/OfficePage').then((m) => ({ default: m.OfficePage })))
 
-export type Page = 'agents' | 'chat' | 'promptgen' | 'flows' | 'routines' | 'runs' | 'blackbox' | 'settings' | 'memory' | 'mcp'
+export type Page = 'agents' | 'chat' | 'promptgen' | 'flows' | 'routines' | 'runs' | 'blackbox' | 'settings' | 'memory' | 'mcp' | 'office'
 
 const homePage: Page = 'chat'
 
@@ -35,7 +36,8 @@ const nav: { page: Page; label: string; icon: string; shortLabel: string }[] = [
   { page: 'routines',  label: 'Rotinas',             icon: '↺', shortLabel: 'Rotinas' },
   { page: 'runs',      label: 'Execuções',           icon: '▶', shortLabel: 'Execuções'},
   { page: 'blackbox',  label: 'Caixa-Preta',         icon: '◼', shortLabel: 'C. Preta'},
-  { page: 'memory',    label: 'Memória',              icon: '🧠', shortLabel: 'Memória' },
+  { page: 'office',   label: 'Escritório',           icon: '🏢', shortLabel: 'Escritório'},
+  { page: 'memory',   label: 'Memória',              icon: '🧠', shortLabel: 'Memória' },
   { page: 'mcp',       label: 'MCP',                  icon: '⬡', shortLabel: 'MCP'     },
   { page: 'settings',  label: 'Configurações',       icon: '⚙', shortLabel: 'Config.' },
 ]
@@ -197,6 +199,7 @@ function Shell() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.key === '\\') { e.preventDefault(); toggleSidebar(); return }
+      if (e.ctrlKey && e.shiftKey && e.key === 'E') { e.preventDefault(); navigate('office'); return }
       if (!e.ctrlKey || e.key !== 'Tab') return
       e.preventDefault()
       const tabs = openTabsRef.current
@@ -308,6 +311,7 @@ function Shell() {
             {page === 'blackbox' && (
               <BlackBoxPage agents={agents} />
             )}
+            {page === 'office' && <OfficePage onOpenChat={(id) => openChat(id, null)} />}
             {page === 'memory' && <MemoryPage />}
             {page === 'mcp' && <McpPage />}
             {page === 'settings' && (

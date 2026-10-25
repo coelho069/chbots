@@ -13,6 +13,7 @@ export interface McpServiceDeps {
   onStatusChanged: () => void
   onApprovalRequest: (req: McpApprovalRequest) => void
   onToolCall: (event: { conversationId: number; serverName: string; toolName: string; args: Record<string, unknown>; result?: McpCallResult; status: 'calling' | 'done' | 'error' | 'denied' }) => void
+  onOfficeEvent?: (ev: import('@shared/office').OfficeEvent) => void
 }
 
 interface Entry {
@@ -165,7 +166,7 @@ export class McpService {
     serverName: string,
     toolName: string,
     args: Record<string, unknown>,
-    opts: { conversationId?: number; requireApproval?: boolean; approvalKey?: string } = {}
+    opts: { conversationId?: number; requireApproval?: boolean; approvalKey?: string; botId?: number } = {}
   ): Promise<McpCallResult> {
     const entry = this.entries.get(serverName)
     if (!entry?.client || entry.info.status !== 'connected') throw new Error(`Servidor MCP "${serverName}" não está conectado`)
@@ -173,6 +174,9 @@ export class McpService {
     const conversationId = opts.conversationId ?? 0
 
     if (opts.requireApproval) {
+      if (opts.botId != null) {
+        this.deps.onOfficeEvent?.({ botId: opts.botId, state: 'approval', tool: toolName, ts: Date.now() })
+      }
       const approved = await this.requestApproval({ serverName, toolName, args, conversationId })
       if (!approved) {
         if (opts.conversationId != null) {
@@ -182,6 +186,9 @@ export class McpService {
       }
     }
 
+    if (opts.botId != null) {
+      this.deps.onOfficeEvent?.({ botId: opts.botId, state: 'tool', tool: toolName, ts: Date.now() })
+    }
     if (opts.conversationId != null) {
       this.deps.onToolCall({ conversationId, serverName, toolName, args, status: 'calling' })
     }

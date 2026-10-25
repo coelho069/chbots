@@ -21,6 +21,7 @@ export interface EngineActions {
   memorySearch(args: { query: string; categories: string[]; limit: number }): Promise<string>
   delegateTask(args: { agentId: number; task: string; flowName: string }): Promise<string>
   mcpCallTool(args: { serverName: string; toolName: string; args: Record<string, unknown>; signal: AbortSignal }): Promise<string>
+  onOfficeEvent?: (botId: number, ev: Omit<import('@shared/office').OfficeEvent, 'botId'>) => void
 }
 
 export interface StepUpdate {

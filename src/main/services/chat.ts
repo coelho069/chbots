@@ -30,6 +30,7 @@ export interface ChatDeps {
   memory?: MemoryService
   delegation?: DelegationService
   mcpService?: McpService
+  onOfficeEvent?: (ev: import('@shared/office').OfficeEvent) => void
 }
 
 export class ChatService {
@@ -117,6 +118,8 @@ export class ChatService {
         })
       }
 
+      this.deps.onOfficeEvent?.({ botId: agent.id, state: 'thinking', task: text.slice(0, 80), ts: Date.now() })
+
       // Build MCP tools list for this agent
       const mcpTools: ToolDef[] = []
       const { mcpService } = this.deps
@@ -139,7 +142,10 @@ export class ChatService {
           tools: mcpTools.length > 0 ? mcpTools : undefined,
           streaming: mcpTools.length === 0
         },
-        (delta) => this.deps.onChunk({ conversationId, delta })
+        (delta) => {
+          this.deps.onChunk({ conversationId, delta })
+          if (delta) this.deps.onOfficeEvent?.({ botId: agent.id, state: 'writing', text: delta.slice(0, 60), ts: Date.now() })
+        }
       )
 
       while (result.toolUse?.length && toolCallCount < MAX_TOOL_CALLS && mcpService) {
@@ -161,6 +167,7 @@ export class ChatService {
             const callResult = await mcpService.callTool(ref.serverName, tu.name, tu.input, {
               conversationId,
               requireApproval: policy === 'ask',
+              botId: agent.id,
             })
             logMcpCall(db, ref.serverName, tu.name, callResult.isError ? 'error' : 'ok', callResult.durationMs)
             toolContent = callResult.content
@@ -229,7 +236,11 @@ export class ChatService {
       })
       const source = `conversa com agente ${agent.name} em ${new Date().toLocaleDateString('pt-BR')}`
       this.deps.memory?.extractAndSaveAsync(agent.id, `Usuário: ${text}\nAssistente: ${finalText}`, source)
+      this.deps.onOfficeEvent?.({ botId: agent.id, state: 'done', ts: Date.now() })
       return saved
+    } catch (err) {
+      this.deps.onOfficeEvent?.({ botId: agent.id, state: 'error', error: String(err).slice(0, 120), ts: Date.now() })
+      throw err
     } finally {
       this.busy.delete(conversationId)
       this.controllers.delete(conversationId)

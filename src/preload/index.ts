@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import { channels as c, events } from '@shared/ipc'
 import type { FlowStepEvent } from '@shared/flows'
 import type { ChatChunk, DelegationCard, McpApprovalRequest, McpToolCallEvent, PilotosApi } from '@shared/types'
+import type { OfficeEvent } from '@shared/office'
 
 const invoke = <T>(channel: string, ...args: unknown[]): Promise<T> => ipcRenderer.invoke(channel, ...args)
 
@@ -135,6 +136,10 @@ const api: PilotosApi = {
     onStatusChanged: (listener) => subscribe<void>(events.mcpStatusChanged, () => listener()),
     onApprovalRequest: (listener) => subscribe<McpApprovalRequest>(events.mcpApprovalRequest, listener),
     onToolCall: (listener) => subscribe<McpToolCallEvent>(events.mcpToolCall, listener)
+  },
+  office: {
+    onEvent: (listener: (evs: OfficeEvent[]) => void) => subscribe<OfficeEvent[]>('escritorio:evento', listener),
+    getEstado: () => ipcRenderer.invoke('escritorio:getEstado')
   }
 }
 

@@ -1,4 +1,4 @@
-import { resolve } from 'node:path'
+﻿import { resolve } from 'node:path'
 import { defineConfig } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 
@@ -6,12 +6,7 @@ const shared = { '@shared': resolve(import.meta.dirname, 'src/shared') }
 
 export default defineConfig({
   main: {
-    resolve: {
-      alias: shared,
-      // Força o CJS do node-cron (dist/node-cron.cjs, sem import.meta.url)
-      // em vez do ESM (dist/node-cron.js) que quebra no bundle CJS do main.
-      mainFields: ['main', 'module']
-    },
+    resolve: { alias: shared },
     build: { minify: true }
   },
   preload: {
@@ -35,3 +30,5 @@ export default defineConfig({
     }
   }
 })
+
+

@@ -19,6 +19,8 @@ import { loadMcpFile } from './mcpConfig'
 import { FileSecretStore, type Cipher } from './secrets'
 import { ChatService } from './services/chat'
 import { Scheduler } from './services/scheduler'
+import { OfficeIpc } from './officeIpc'
+import { listAgents } from './db/repos/agents'
 
 const devServerUrl = process.env.ELECTRON_RENDERER_URL
 const iconPath = join(__dirname, '../../resources/icon.png')
@@ -160,6 +162,9 @@ if (!app.requestSingleInstanceLock()) {
     const db = openDatabase(dbPath)
     const secrets = new FileSecretStore(join(dataDir, 'secrets.json'), safeStorageCipher())
 
+    const officeIpc = new OfficeIpc()
+    officeIpc.registerHandlers()
+
     const memoryService = new MemoryService({
       db,
       clientFor: (providerId) => {
@@ -174,7 +179,8 @@ if (!app.requestSingleInstanceLock()) {
       secrets,
       createClient,
       onChunk: (chunk: ChatChunk) => send(events.chatChunk, chunk),
-      memory: memoryService
+      memory: memoryService,
+      onOfficeEvent: (ev) => officeIpc.emit(ev)
       // delegation injected below after construction (circular dep)
     })
 
@@ -204,7 +210,8 @@ if (!app.requestSingleInstanceLock()) {
     const mcpService = new McpService({
       onStatusChanged: () => send(events.mcpStatusChanged),
       onApprovalRequest: (req) => send(events.mcpApprovalRequest, req),
-      onToolCall: (event) => send(events.mcpToolCall, event)
+      onToolCall: (event) => send(events.mcpToolCall, event),
+      onOfficeEvent: (ev) => officeIpc.emit(ev)
     })
     chat.deps.mcpService = mcpService
 
@@ -249,6 +256,9 @@ if (!app.requestSingleInstanceLock()) {
 
     createAppMenu()
     mainWindow = createWindow(db)
+    officeIpc.setWindow(mainWindow)
+    // Register desks for all existing agents
+    for (const a of listAgents(db)) officeIpc.registerDesk(a.id, a.name, a.color)
     createTray()
 
     // Defer non-essential startup work 3s after window is visible
