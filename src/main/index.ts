@@ -24,6 +24,7 @@ import { OfficeIpc } from './officeIpc'
 import { listAgents } from './db/repos/agents'
 import { insertPage, updatePage } from './db/repos/pages'
 import { insertDraft, updateDraftStatus } from './db/repos/drafts'
+import { startApiServer } from './api'
 
 const devServerUrl = process.env.ELECTRON_RENDERER_URL
 const iconPath = join(__dirname, '../../resources/icon.png')
@@ -360,6 +361,7 @@ if (!app.requestSingleInstanceLock()) {
       resolveDraft: (draftId, approve) => draftResolvers.get(draftId)?.(approve)
     })
 
+    startApiServer({ db, secrets, createClient })
     createAppMenu()
     mainWindow = createWindow(db)
     officeIpc.setWindow(mainWindow)
