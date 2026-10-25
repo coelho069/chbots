@@ -1,5 +1,5 @@
 import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { Agent, Provider } from '@shared/types'
+import type { Agent, PageRecord, Provider } from '@shared/types'
 import { api } from './api'
 import { CloseContext, type CloseApi } from './CloseContext'
 import { createCloser, type CloseHandler } from './closeCurrent'
@@ -18,8 +18,9 @@ const RunsPage      = lazy(() => import('./pages/RunsPage').then((m) => ({ defau
 const SettingsPage  = lazy(() => import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 const McpPage       = lazy(() => import('./pages/McpPage').then((m) => ({ default: m.McpPage })))
 const OfficePage    = lazy(() => import('./pages/OfficePage').then((m) => ({ default: m.OfficePage })))
+const PagesPage     = lazy(() => import('./pages/PagesPage').then((m) => ({ default: m.PagesPage })))
 
-export type Page = 'agents' | 'chat' | 'promptgen' | 'flows' | 'routines' | 'runs' | 'blackbox' | 'settings' | 'memory' | 'mcp' | 'office'
+export type Page = 'agents' | 'chat' | 'promptgen' | 'flows' | 'routines' | 'runs' | 'blackbox' | 'settings' | 'memory' | 'mcp' | 'office' | 'pages'
 
 const homePage: Page = 'chat'
 
@@ -39,6 +40,7 @@ const nav: { page: Page; label: string; icon: string; shortLabel: string }[] = [
   { page: 'office',   label: 'Escritório',           icon: '🏢', shortLabel: 'Escritório'},
   { page: 'memory',   label: 'Memória',              icon: '🧠', shortLabel: 'Memória' },
   { page: 'mcp',       label: 'MCP',                  icon: '⬡', shortLabel: 'MCP'     },
+  { page: 'pages',     label: 'Pages',               icon: '🗒', shortLabel: 'Pages'   },
   { page: 'settings',  label: 'Configurações',       icon: '⚙', shortLabel: 'Config.' },
 ]
 
@@ -116,6 +118,7 @@ function Shell() {
   const [loaded, setLoaded] = useState(false)
   const [sidebarCollapsed, toggleSidebar] = useSidebarCollapsed()
   const [activeCount, setActiveCount] = useState(0)
+  const [openPage, setOpenPage] = useState<PageRecord | null>(null)
 
   // Auto-collapse on narrow windows — setCollapsed exposed via a ref trick isn't available,
   // so we track with the existing hook by watching a media query
@@ -233,6 +236,7 @@ function Shell() {
   }, [toast.error]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => api.app.onCloseCurrent(closeApi.requestClose), [closeApi])
+  useEffect(() => api.pages.onOpen(setOpenPage), [])
 
   if (!loaded) return <div className="splash">Carregando…</div>
 
@@ -314,12 +318,27 @@ function Shell() {
             {page === 'office' && <OfficePage onOpenChat={(id) => openChat(id, null)} />}
             {page === 'memory' && <MemoryPage />}
             {page === 'mcp' && <McpPage />}
+            {page === 'pages' && <PagesPage onOpen={setOpenPage} />}
             {page === 'settings' && (
               <SettingsPage providers={providers} onProvidersChanged={reloadProviders} />
             )}
           </Suspense>
           </div>
         </main>
+        {openPage && (
+          <div style={{ position: 'fixed', right: 0, top: 0, bottom: 0, width: '45vw', display: 'flex', flexDirection: 'column', background: 'var(--surface-1, #1e2030)', borderLeft: '1px solid var(--border, #3a3b4a)', zIndex: 100 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 1rem', borderBottom: '1px solid var(--border, #3a3b4a)', flexShrink: 0 }}>
+              <span>{openPage.title}</span>
+              <button onClick={() => setOpenPage(null)}>×</button>
+            </div>
+            <iframe
+              srcDoc={openPage.html}
+              sandbox="allow-scripts allow-same-origin"
+              style={{ width: '100%', flex: 1, border: 'none' }}
+              title={openPage.title}
+            />
+          </div>
+        )}
       </div>
     </CloseContext.Provider>
   )

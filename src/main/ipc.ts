@@ -81,6 +81,7 @@ import { handoff } from './services/handoff'
 import type { PromptGenerator } from './services/promptGen'
 import { cleanReply } from './services/promptGen'
 import type { Scheduler } from './services/scheduler'
+import { listPages, getPage as getPageRecord, deletePage } from './db/repos/pages'
 
 export interface IpcContext {
   db: Db
@@ -94,6 +95,7 @@ export interface IpcContext {
   dataDir: string
   getWindow: () => BrowserWindow | null
   isTrustedUrl: (url: string) => boolean
+  resolveDraft: (draftId: number, approve: boolean) => void
 }
 
 type Handler = (...args: unknown[]) => unknown
@@ -554,5 +556,15 @@ export function registerIpc(ctx: IpcContext): void {
     rmSync(target, { force: true })
     db.prepare('VACUUM INTO ?').run(target)
     return target
+  })
+
+  // ---- Pages ----
+  handle(channels.pagesList, () => listPages(db))
+  handle(channels.pagesGet, (rawId) => getPageRecord(db, id(rawId)))
+  handle(channels.pagesDelete, (rawId) => { deletePage(db, id(rawId)) })
+
+  // ---- Canais externos (rascunhos de envio) ----
+  handle(channels.draftRespond, (rawDraftId, approve) => {
+    ctx.resolveDraft(id(rawDraftId), Boolean(approve))
   })
 }

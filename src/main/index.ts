@@ -18,10 +18,12 @@ import { McpService } from './services/mcp'
 import { McpTranslationService } from './services/mcpTranslation'
 import { loadMcpFile } from './mcpConfig'
 import { FileSecretStore, type Cipher } from './secrets'
-import { ChatService } from './services/chat'
+import { ChatService, type BuiltinToolSet } from './services/chat'
 import { Scheduler } from './services/scheduler'
 import { OfficeIpc } from './officeIpc'
 import { listAgents } from './db/repos/agents'
+import { insertPage, updatePage } from './db/repos/pages'
+import { insertDraft, updateDraftStatus } from './db/repos/drafts'
 
 const devServerUrl = process.env.ELECTRON_RENDERER_URL
 const iconPath = join(__dirname, '../../resources/icon.png')
@@ -192,6 +194,96 @@ if (!app.requestSingleInstanceLock()) {
     })
     chat.deps.delegation = delegation
 
+    // Resolvers para o loop de aprovação de rascunhos
+    const draftResolvers = new Map<number, (approve: boolean) => void>()
+
+    const builtinTools: BuiltinToolSet = {
+      defs: [
+        {
+          name: 'render_page',
+          description: 'Cria ou atualiza um painel HTML interativo visivel ao usuario ao lado do chat. Use para relatorios, dashboards e visualizacoes.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              title: { type: 'string', description: 'Titulo da page' },
+              html: { type: 'string', description: 'Conteudo HTML completo' }
+            },
+            required: ['title', 'html']
+          }
+        },
+        {
+          name: 'update_page',
+          description: 'Atualiza o HTML de uma page existente pelo id.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              id: { type: 'number' },
+              html: { type: 'string' }
+            },
+            required: ['id', 'html']
+          }
+        },
+        {
+          name: 'send_email',
+          description: 'Cria um rascunho de e-mail que o usuário deve aprovar antes de enviar. NUNCA envia automaticamente.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              to: { type: 'string', description: 'Endereço de e-mail do destinatário' },
+              subject: { type: 'string', description: 'Assunto do e-mail' },
+              body: { type: 'string', description: 'Corpo do e-mail' }
+            },
+            required: ['to', 'body']
+          }
+        },
+        {
+          name: 'send_slack',
+          description: 'Cria um rascunho de mensagem Slack que o usuário deve aprovar antes de enviar. NUNCA envia automaticamente.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              channel: { type: 'string', description: 'Canal ou usuário do Slack (ex: #geral ou @usuario)' },
+              text: { type: 'string', description: 'Texto da mensagem' }
+            },
+            required: ['channel', 'text']
+          }
+        }
+      ],
+      // shortcut: envio real não implementado; adicionar SMTP/Slack webhook quando credenciais estiverem configuradas
+      async handle(name, input, conversationId) {
+        if (name === 'render_page') {
+          const page = insertPage(db, String(input.title ?? 'Sem titulo'), String(input.html ?? ''))
+          send(events.pageOpen, page)
+          return `Page criada com id ${page.id}`
+        }
+        if (name === 'update_page') {
+          const page = updatePage(db, Number(input.id), String(input.html ?? ''))
+          send(events.pageOpen, page)
+          return `Page ${page.id} atualizada`
+        }
+        if (name === 'send_email' || name === 'send_slack') {
+          const draft = name === 'send_email'
+            ? insertDraft(db, { tool: 'send_email', conversationId, recipient: String(input.to ?? ''), subject: input.subject != null ? String(input.subject) : null, body: String(input.body ?? '') })
+            : insertDraft(db, { tool: 'send_slack', conversationId, recipient: String(input.channel ?? ''), subject: null, body: String(input.text ?? '') })
+          send(events.draftPending, draft)
+          return new Promise<string>((resolve) => {
+            draftResolvers.set(draft.id, (approve) => {
+              draftResolvers.delete(draft.id)
+              if (approve) {
+                updateDraftStatus(db, draft.id, 'sent')
+                resolve('Mensagem enviada com sucesso.')
+              } else {
+                updateDraftStatus(db, draft.id, 'discarded')
+                resolve('Envio cancelado pelo usuário.')
+              }
+            })
+          })
+        }
+        return 'Ferramenta desconhecida'
+      }
+    }
+    chat.deps.builtinTools = builtinTools
+
     const scheduler = new Scheduler({
       db,
       chat,
@@ -264,7 +356,8 @@ if (!app.requestSingleInstanceLock()) {
       mcpService,
       dataDir,
       getWindow: () => mainWindow,
-      isTrustedUrl
+      isTrustedUrl,
+      resolveDraft: (draftId, approve) => draftResolvers.get(draftId)?.(approve)
     })
 
     createAppMenu()

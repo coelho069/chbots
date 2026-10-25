@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useRef, useState, type RefObject } from 'react'
-import type { Agent, Attachment, Conversation, DelegationCard, McpApprovalRequest, McpToolCallEvent, Message } from '@shared/types'
+import type { Agent, Attachment, Conversation, DelegationCard, McpApprovalRequest, McpToolCallEvent, Message, SendDraft } from '@shared/types'
 import { api, formatDateTime } from '../api'
 import type { ChatTarget } from '../App'
 import { CloseButton, useCloseHandler } from '../CloseContext'
@@ -31,6 +31,7 @@ export function ChatPage({ agents, target, onOpenChat }: Props) {
   const [mcpToolCalls, setMcpToolCalls] = useState<McpToolCallEvent[]>([])
   const [mcpApprovals, setMcpApprovals] = useState<McpApprovalRequest[]>([])
   const [attachments, setAttachments] = useState<Attachment[]>([])
+  const [pendingDrafts, setPendingDrafts] = useState<SendDraft[]>([])
   const [sendError, setSendError] = useState<{ conversationId: number; content: string; message: string } | null>(null)
   const [approvalError, setApprovalError] = useState<string | null>(null)
   const [respondingApprovals, setRespondingApprovals] = useState<string[]>([])
@@ -139,10 +140,18 @@ export function ChatPage({ agents, target, onOpenChat }: Props) {
     })
   }), [conversationId])
 
+  // Rascunhos de envio externo pendentes
+  useEffect(() => api.drafts.onPending((draft) => {
+    if (draft.conversationId === conversationId) {
+      setPendingDrafts((prev) => [...prev, draft])
+    }
+  }), [conversationId])
+
   // Limpa cartões ao trocar de conversa
   useEffect(() => {
     setDelegCards([])
     setMcpToolCalls([])
+    setPendingDrafts([])
     setApprovalError(null)
     setSendError(null)
   }, [conversationId])
@@ -434,6 +443,10 @@ export function ChatPage({ agents, target, onOpenChat }: Props) {
           {mcpToolCalls.map((ev, i) => (
             <McpToolCallCard key={i} event={ev} />
           ))}
+          {pendingDrafts.map((d) => (
+            <DraftCard key={d.id} draft={d}
+              onRespond={() => setPendingDrafts((prev) => prev.filter((x) => x.id !== d.id))} />
+          ))}
           {draft !== undefined && (
             <div className="bubble assistant streaming">
               <div className="bubble-text">{draft}</div>
@@ -673,6 +686,34 @@ function McpApprovalCard({ req, onRespond, responding, approveRef, onAlwaysAllow
           <button ref={approveRef} onClick={() => onRespond(true)} className="primary" disabled={responding}>{responding ? 'Enviando…' : 'Aprovar'}</button>
           <button onClick={() => onRespond(false)} className="danger" disabled={responding}>Recusar</button>
           <button onClick={onAlwaysAllow} disabled={responding} title="Salva esta permissão no agente">Sempre aprovar esta ferramenta neste agente</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function DraftCard({ draft, onRespond }: { draft: SendDraft; onRespond: (approve: boolean) => void }) {
+  const [responding, setResponding] = useState(false)
+  async function respond(approve: boolean) {
+    setResponding(true)
+    try {
+      await api.drafts.respond(draft.id, approve)
+      onRespond(approve)
+    } finally {
+      setResponding(false)
+    }
+  }
+  return (
+    <div className="delegation-card status-running">
+      <div className="delegation-header" style={{ cursor: 'default' }}>
+        <strong>{draft.tool === 'send_email' ? 'E-mail' : 'Slack'}: {draft.recipient}</strong>
+      </div>
+      <div className="delegation-body">
+        {draft.subject && <div className="delegation-section"><span className="muted small">Assunto</span><div>{draft.subject}</div></div>}
+        <div className="delegation-section"><span className="muted small">Mensagem</span><pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontSize: '0.85rem' }}>{draft.body}</pre></div>
+        <div className="mcp-approval-card-actions">
+          <button className="primary" disabled={responding} onClick={() => void respond(true)}>Enviar</button>
+          <button className="danger" disabled={responding} onClick={() => void respond(false)}>Descartar</button>
         </div>
       </div>
     </div>

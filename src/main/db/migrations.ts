@@ -482,5 +482,28 @@ export const migrations: string[] = [
   `
 ALTER TABLE routines ADD COLUMN last_output_hash TEXT;
 ALTER TABLE routines ADD COLUMN notify_only_when_changed INTEGER NOT NULL DEFAULT 0;
+`,
+  // 17: Pages — painéis HTML criados pelo agente via render_page.
+  `
+CREATE TABLE pages (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  title      TEXT NOT NULL,
+  html       TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+`,
+  // 18: Rascunhos de envio externo (e-mail, Slack) com aprovação obrigatória.
+  `
+CREATE TABLE send_drafts (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  tool         TEXT NOT NULL CHECK(tool IN ('send_email','send_slack')),
+  conversation_id INTEGER NOT NULL,
+  recipient    TEXT NOT NULL,
+  subject      TEXT,
+  body         TEXT NOT NULL,
+  status       TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','sent','discarded')),
+  created_at   TEXT NOT NULL
+);
 `
 ]

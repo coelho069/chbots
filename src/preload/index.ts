@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import { channels as c, events } from '@shared/ipc'
 import type { FlowStepEvent } from '@shared/flows'
-import type { ChatChunk, DelegationCard, McpApprovalRequest, McpToolCallEvent, PilotosApi } from '@shared/types'
+import type { ChatChunk, DelegationCard, McpApprovalRequest, McpToolCallEvent, PageRecord, PilotosApi, SendDraft } from '@shared/types'
 import type { OfficeEvent } from '@shared/office'
 
 const invoke = <T>(channel: string, ...args: unknown[]): Promise<T> => ipcRenderer.invoke(channel, ...args)
@@ -147,6 +147,16 @@ const api: PilotosApi = {
   office: {
     onEvent: (listener: (evs: OfficeEvent[]) => void) => subscribe<OfficeEvent[]>('escritorio:evento', listener),
     getEstado: () => ipcRenderer.invoke('escritorio:getEstado')
+  },
+  pages: {
+    list: () => invoke(c.pagesList),
+    get: (id: number) => invoke(c.pagesGet, id),
+    delete: (id: number) => invoke(c.pagesDelete, id),
+    onOpen: (listener: (page: PageRecord) => void) => subscribe<PageRecord>(events.pageOpen, listener)
+  },
+  drafts: {
+    respond: (draftId: number, approve: boolean) => invoke(c.draftRespond, draftId, approve),
+    onPending: (listener: (draft: SendDraft) => void) => subscribe<SendDraft>(events.draftPending, listener)
   }
 }
 

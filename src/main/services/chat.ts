@@ -44,6 +44,11 @@ function modelSignal(parent: AbortSignal, timeoutMs: number): { signal: AbortSig
   }
 }
 
+export interface BuiltinToolSet {
+  defs: ToolDef[]
+  handle(name: string, input: Record<string, unknown>, conversationId: number): Promise<string>
+}
+
 export interface ChatDeps {
   db: Db
   secrets: SecretStore
@@ -52,6 +57,7 @@ export interface ChatDeps {
   memory?: MemoryService
   delegation?: DelegationService
   mcpService?: McpService
+  builtinTools?: BuiltinToolSet
   onOfficeEvent?: (ev: import('@shared/office').OfficeEvent) => void
 }
 
@@ -176,6 +182,7 @@ export class ChatService {
         }
       }
       console.info(`[MCP] montar tools: ${Date.now() - toolBuildStartedAt}ms (${mcpTools.length} selecionadas)`)
+      const allTools: ToolDef[] = [...mcpTools, ...(this.deps.builtinTools?.defs ?? [])]
 
       const parentSignal = opts.signal ?? abortController.signal
       const callModel = async (request: Omit<Parameters<LlmClient['chat']>[0], 'signal'>, label: string) => {
@@ -204,11 +211,11 @@ export class ChatService {
         system: systemWithMemory,
         messages: history,
         temperature: agent.temperature,
-        tools: mcpTools.length > 0 ? mcpTools : undefined,
+        tools: allTools.length > 0 ? allTools : undefined,
         streaming: true
       }, 'inicial')
 
-      while (result.toolUse?.length && mcpService) {
+      while (result.toolUse?.length && (mcpService || this.deps.builtinTools)) {
         if (toolRounds >= MAX_TOOL_ROUNDS) throw new Error(`Limite de ${MAX_TOOL_ROUNDS} rodadas de ferramentas MCP atingido`)
         toolRounds++
         console.info(`[MCP] rodada de tools ${toolRounds}/${MAX_TOOL_ROUNDS} (${result.toolUse.length} chamadas)`)
@@ -216,9 +223,25 @@ export class ChatService {
         history.push(toolTurn)
 
         for (const tu of result.toolUse) {
+          // Built-in tools handled locally before MCP lookup
+          const builtin = this.deps.builtinTools
+          if (builtin?.defs.some((d) => d.name === tu.name)) {
+            let builtinResult: string
+            try {
+              builtinResult = await builtin.handle(tu.name, tu.input as Record<string, unknown>, conversationId)
+            } catch (err) {
+              builtinResult = `Erro: ${err instanceof Error ? err.message : String(err)}`
+            }
+            history.push({ role: 'tool', content: builtinResult, toolCallId: tu.id })
+            continue
+          }
           // Find which server owns this tool
           const ref = agent.mcpTools.find((r) => r.toolName === tu.name)
           if (!ref) {
+            history.push({ role: 'tool', content: 'Ferramenta não encontrada', toolCallId: tu.id })
+            continue
+          }
+          if (!mcpService) {
             history.push({ role: 'tool', content: 'Ferramenta não encontrada', toolCallId: tu.id })
             continue
           }
@@ -252,7 +275,7 @@ export class ChatService {
           system: systemWithMemory,
           messages: history,
           temperature: agent.temperature,
-          tools: mcpTools,
+          tools: allTools,
           streaming: true
         }, `após tools ${toolRounds}`)
       }

@@ -263,6 +263,29 @@ export type { AgentInput, HandoffInput, PromptGenerateInput, ProviderInput, Rout
 export type { McpApprovalMap, McpApprovalRequest, McpCallResult, McpServerInfo, McpToolRef }
 export type { BotActivityState, BotDeskState, OfficeEvent } from './office'
 
+// ---- Pages ----
+
+export interface PageRecord {
+  id: number
+  title: string
+  html: string
+  createdAt: string
+  updatedAt: string
+}
+
+// ---- Canais externos (e-mail, Slack) ----
+
+export interface SendDraft {
+  id: number
+  tool: 'send_email' | 'send_slack'
+  conversationId: number
+  recipient: string
+  subject: string | null
+  body: string
+  status: 'pending' | 'sent' | 'discarded'
+  createdAt: string
+}
+
 // ---- Eventos enviados do main para o renderer ----
 
 export interface McpToolCallEvent {
@@ -430,5 +453,15 @@ export interface PilotosApi {
   office: {
     onEvent(listener: (evs: import('./office').OfficeEvent[]) => void): () => void
     getEstado(): Promise<import('./office').BotDeskState[]>
+  }
+  pages: {
+    list(): Promise<PageRecord[]>
+    get(id: number): Promise<PageRecord | null>
+    delete(id: number): Promise<void>
+    onOpen(listener: (page: PageRecord) => void): () => void
+  }
+  drafts: {
+    respond(draftId: number, approve: boolean): Promise<void>
+    onPending(listener: (draft: SendDraft) => void): () => void
   }
 }

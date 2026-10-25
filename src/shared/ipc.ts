@@ -95,7 +95,13 @@ export const channels = {
   mcpSetApproval: 'mcp:set-approval',
   mcpRemoveApproval: 'mcp:remove-approval',
   // ---- Escritório ----
-  escritorioGetEstado: 'escritorio:getEstado'
+  escritorioGetEstado: 'escritorio:getEstado',
+  // ---- Pages ----
+  pagesList: 'pages:list',
+  pagesGet: 'pages:get',
+  pagesDelete: 'pages:delete',
+  // ---- Canais externos (e-mail, Slack) ----
+  draftRespond: 'draft:respond'
 } as const
 
 // Atalho global de "fechar item atual"; registrado no menu do Electron.
@@ -112,5 +118,7 @@ export const events = {
   mcpStatusChanged: 'mcp:status-changed',
   mcpApprovalRequest: 'mcp:approval-request',
   mcpToolCall: 'mcp:tool-call',
-  escritorioEvento: 'escritorio:evento'
+  escritorioEvento: 'escritorio:evento',
+  pageOpen: 'page:open',
+  draftPending: 'draft:pending'
 } as const
