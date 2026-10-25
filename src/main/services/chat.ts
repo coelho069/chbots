@@ -120,8 +120,8 @@ export class ChatService {
       const client = this.clientFor(agent.providerId)
       const { attachments } = opts
       const pdfTexts = (attachments ?? []).filter((a) => a.mediaType === 'application/pdf').map((a) => `[PDF: ${a.name}]`).join(' ')
-      const finalText = pdfTexts ? `${text}\n${pdfTexts}` : text
-      insertMessage(db, { conversationId, role: 'user', content: finalText, fromAgentId: opts.fromAgentId ?? null })
+      const userText = pdfTexts ? `${text}\n${pdfTexts}` : text
+      insertMessage(db, { conversationId, role: 'user', content: userText, fromAgentId: opts.fromAgentId ?? null })
       if (conversation.title === defaultTitle) setConversationTitle(db, conversationId, titleFrom(text))
 
       const history: ChatTurn[] = listMessages(db, conversationId)

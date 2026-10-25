@@ -31,7 +31,7 @@ export function ChatPage({ agents, target, onOpenChat }: Props) {
   const [mcpToolCalls, setMcpToolCalls] = useState<McpToolCallEvent[]>([])
   const [mcpApprovals, setMcpApprovals] = useState<McpApprovalRequest[]>([])
   const [attachments, setAttachments] = useState<Attachment[]>([])
-  const [pendingDrafts, setPendingDrafts] = useState<SendDraft[]>([])
+  const [sendDrafts, setSendDrafts] = useState<SendDraft[]>([])
   const [sendError, setSendError] = useState<{ conversationId: number; content: string; message: string } | null>(null)
   const [approvalError, setApprovalError] = useState<string | null>(null)
   const [respondingApprovals, setRespondingApprovals] = useState<string[]>([])
@@ -143,7 +143,7 @@ export function ChatPage({ agents, target, onOpenChat }: Props) {
   // Rascunhos de envio externo pendentes
   useEffect(() => api.drafts.onPending((draft) => {
     if (draft.conversationId === conversationId) {
-      setPendingDrafts((prev) => [...prev, draft])
+      setSendDrafts((prev) => [...prev, draft])
     }
   }), [conversationId])
 
@@ -151,7 +151,7 @@ export function ChatPage({ agents, target, onOpenChat }: Props) {
   useEffect(() => {
     setDelegCards([])
     setMcpToolCalls([])
-    setPendingDrafts([])
+    setSendDrafts([])
     setApprovalError(null)
     setSendError(null)
   }, [conversationId])
@@ -443,9 +443,9 @@ export function ChatPage({ agents, target, onOpenChat }: Props) {
           {mcpToolCalls.map((ev, i) => (
             <McpToolCallCard key={i} event={ev} />
           ))}
-          {pendingDrafts.map((d) => (
+          {sendDrafts.map((d) => (
             <DraftCard key={d.id} draft={d}
-              onRespond={() => setPendingDrafts((prev) => prev.filter((x) => x.id !== d.id))} />
+              onRespond={() => setSendDrafts((prev) => prev.filter((x) => x.id !== d.id))} />
           ))}
           {draft !== undefined && (
             <div className="bubble assistant streaming">
