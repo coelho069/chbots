@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { McpServerInfo, McpToolDef } from '@shared/mcp'
 import type { McpServerConfig } from '@shared/mcp'
-import { getMcpToolDescriptionPtBr } from '@shared/mcpToolDescriptions'
+import { getMcpDescricaoPtBR } from '@shared/mcpDescricoesPtBR'
 import { api, errorMessage } from '../api'
 import { useToast } from '../toast'
 
@@ -51,7 +51,7 @@ interface ToolTestModalProps {
 }
 
 function ToolDescription({ tool, translated, onTranslate }: { tool: McpToolDef; translated?: string; onTranslate: () => void }) {
-  const knownDescription = getMcpToolDescriptionPtBr(tool.name, tool.description)
+  const knownDescription = getMcpDescricaoPtBR(tool.name, tool.description)
   const description = translated ?? knownDescription
   const isKnown = knownDescription !== tool.description
   return <>{description}{!translated && !isKnown && <button className="small" onClick={onTranslate}>Traduzir</button>}</>

@@ -4,6 +4,7 @@ import { api } from '../api'
 import { CloseButton, useCloseHandler } from '../CloseContext'
 import { confirmUnsaved, sameFields } from '../closeCurrent'
 import { useToast } from '../toast'
+import { getMcpDescricaoPtBR } from '@shared/mcpDescricoesPtBR'
 
 const agentFields: (keyof AgentInput)[] = ['name', 'color', 'systemPrompt', 'providerId', 'model', 'temperature', 'usarCache', 'mcpTools']
 
@@ -42,6 +43,8 @@ export function AgentsPage({ agents, providers, draft, onDraftUsed, onChanged, o
   const [saving, setSaving] = useState(false)
   const [delCfg, setDelCfg] = useState<DelegationConfig | null>(null)
   const [mcpServers, setMcpServers] = useState<McpServerInfo[]>([])
+  const [translatedMcpDescriptions, setTranslatedMcpDescriptions] = useState<Record<string, string>>({})
+  const [translatingMcpTool, setTranslatingMcpTool] = useState<string | null>(null)
 
   useEffect(() => {
     if (draft) onDraftUsed?.()
@@ -139,6 +142,19 @@ export function AgentsPage({ agents, providers, draft, onDraftUsed, onChanged, o
       setSelectedId(copy.id)
     } catch (err) {
       toast.error(err)
+    }
+  }
+
+  async function translateMcpTool(serverName: string, toolName: string, originalDescription: string) {
+    const key = `${serverName}::${toolName}::${originalDescription}`
+    setTranslatingMcpTool(key)
+    try {
+      const translated = await api.mcp.translateTool(toolName, originalDescription)
+      setTranslatedMcpDescriptions((current) => ({ ...current, [key]: translated }))
+    } catch (err) {
+      toast.error(err)
+    } finally {
+      setTranslatingMcpTool(null)
     }
   }
 
@@ -335,6 +351,11 @@ export function AgentsPage({ agents, providers, draft, onDraftUsed, onChanged, o
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', marginTop: '0.3rem' }}>
                       {s.tools.map((t) => {
                         const checked = form.mcpTools.some((r) => r.serverName === s.name && r.toolName === t.name)
+                        const translationKey = `${s.name}::${t.name}::${t.description}`
+                        const knownDescription = getMcpDescricaoPtBR(t.name, t.description)
+                        const translatedDescription = translatedMcpDescriptions[translationKey]
+                        const displayedDescription = translatedDescription ?? knownDescription
+                        const isKnownDescription = knownDescription !== t.description
                         return (
                           <label key={t.name} className="check">
                             <input
@@ -347,7 +368,23 @@ export function AgentsPage({ agents, providers, draft, onDraftUsed, onChanged, o
                                 set('mcpTools', next)
                               }}
                             />
-                            <span className="small"><strong>{t.name}</strong> — {t.description}</span>
+                            <span className="small">
+                              <strong>{t.name}</strong> — {displayedDescription}
+                              {!isKnownDescription && !translatedDescription && (
+                                <button
+                                  type="button"
+                                  className="small"
+                                  disabled={translatingMcpTool === translationKey}
+                                  onClick={(event) => {
+                                    event.preventDefault()
+                                    event.stopPropagation()
+                                    void translateMcpTool(s.name, t.name, t.description)
+                                  }}
+                                >
+                                  {translatingMcpTool === translationKey ? 'Traduzindo…' : 'Traduzir'}
+                                </button>
+                              )}
+                            </span>
                           </label>
                         )
                       })}
