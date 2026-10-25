@@ -403,6 +403,7 @@ export interface PilotosApi {
     toggle(name: string, enabled: boolean): Promise<McpServerInfo[]>
     restart(name: string): Promise<void>
     callTool(serverName: string, toolName: string, args: Record<string, unknown>): Promise<McpCallResult>
+    translateTool(toolName: string, description: string): Promise<string>
     importConfig(): Promise<McpServerInfo[]>
     approvalRespond(requestId: string, approved: boolean): Promise<void>
     getApprovals(agentId: number): Promise<McpApprovalMap>

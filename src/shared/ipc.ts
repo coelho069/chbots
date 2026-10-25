@@ -83,6 +83,7 @@ export const channels = {
   mcpToggle: 'mcp:toggle',
   mcpRestart: 'mcp:restart',
   mcpCallTool: 'mcp:call-tool',
+  mcpTranslateTool: 'mcp:translate-tool',
   mcpImport: 'mcp:import',
   mcpApprovalRespond: 'mcp:approval-respond',
   mcpGetApprovals: 'mcp:get-approvals',

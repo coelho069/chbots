@@ -449,5 +449,16 @@ export const migrations: string[] = [
   INSERT INTO flow_edges SELECT id, flow_id, source_node, target_node, condition_value FROM flow_edges_bak;
   DROP TABLE flow_edges_bak;
   CREATE INDEX idx_flow_edges_flow ON flow_edges(flow_id);
+  `,
+  // 14: Traduções pt-BR em cache para descrições de ferramentas MCP.
+  `
+  CREATE TABLE mcp_tool_translations (
+    tool_name              TEXT NOT NULL,
+    original_description   TEXT NOT NULL,
+    translated_description TEXT NOT NULL,
+    created_at             TEXT NOT NULL,
+    updated_at             TEXT NOT NULL,
+    PRIMARY KEY (tool_name, original_description)
+  );
   `
 ]

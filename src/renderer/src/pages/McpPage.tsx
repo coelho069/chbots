@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { McpServerInfo, McpToolDef } from '@shared/mcp'
 import type { McpServerConfig } from '@shared/mcp'
+import { getMcpToolDescriptionPtBr } from '@shared/mcpToolDescriptions'
 import { api, errorMessage } from '../api'
 import { useToast } from '../toast'
 
@@ -44,10 +45,19 @@ function serverToForm(s: McpServerInfo): FormState {
 interface ToolTestModalProps {
   server: McpServerInfo
   tool: McpToolDef
+  descriptionPtBr?: string
+  onTranslate: () => void
   onClose: () => void
 }
 
-function ToolTestModal({ server, tool, onClose }: ToolTestModalProps) {
+function ToolDescription({ tool, translated, onTranslate }: { tool: McpToolDef; translated?: string; onTranslate: () => void }) {
+  const knownDescription = getMcpToolDescriptionPtBr(tool.name, tool.description)
+  const description = translated ?? knownDescription
+  const isKnown = knownDescription !== tool.description
+  return <>{description}{!translated && !isKnown && <button className="small" onClick={onTranslate}>Traduzir</button>}</>
+}
+
+function ToolTestModal({ server, tool, descriptionPtBr, onTranslate, onClose }: ToolTestModalProps) {
   const toast = useToast()
   const [argsText, setArgsText] = useState('{}')
   const [result, setResult] = useState<string | null>(null)
@@ -70,7 +80,7 @@ function ToolTestModal({ server, tool, onClose }: ToolTestModalProps) {
           <strong>Testar: {tool.name}</strong>
           <button className="mg-x" onClick={onClose}>×</button>
         </div>
-        <p className="small muted">{tool.description}</p>
+        <p className="small muted"><ToolDescription tool={tool} translated={descriptionPtBr} onTranslate={onTranslate} /></p>
         <label className="field-label">Argumentos (JSON)</label>
         <textarea className="code-area" value={argsText} onChange={(e) => setArgsText(e.target.value)} rows={6} />
         <button onClick={() => void run()} disabled={running}>{running ? 'Executando…' : 'Executar'}</button>
@@ -90,6 +100,7 @@ export function McpPage() {
   const [saveError, setSaveError] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [testModal, setTestModal] = useState<{ server: McpServerInfo; tool: McpToolDef } | null>(null)
+  const [translatedDescriptions, setTranslatedDescriptions] = useState<Record<string, string>>({})
 
   const reload = useCallback(async () => {
     try { setServers(await api.mcp.list()) } catch (e) { toast.error(errorMessage(e)) }
@@ -135,6 +146,14 @@ export function McpPage() {
     try { setServers(await api.mcp.importConfig()) } catch (e) { toast.error(errorMessage(e)) }
   }
 
+  async function translateTool(server: McpServerInfo, tool: McpToolDef) {
+    const key = `${server.name}::${tool.name}::${tool.description}`
+    try {
+      const translated = await api.mcp.translateTool(tool.name, tool.description)
+      setTranslatedDescriptions((current) => ({ ...current, [key]: translated }))
+    } catch (e) { toast.error(errorMessage(e)) }
+  }
+
   const f = form
 
   return (
@@ -173,7 +192,7 @@ export function McpPage() {
               <ul className="mg-list">
                 {s.tools.map((t) => (
                   <li key={t.name} className="mcp-tool-row">
-                    <span className="small"><strong>{t.name}</strong> — {t.description}</span>
+                    <span className="small"><strong>{t.name}</strong> — <ToolDescription tool={t} translated={translatedDescriptions[`${s.name}::${t.name}::${t.description}`]} onTranslate={() => void translateTool(s, t)} /></span>
                     <button className="small" onClick={() => setTestModal({ server: s, tool: t })}>Testar</button>
                   </li>
                 ))}
@@ -247,7 +266,13 @@ export function McpPage() {
       )}
 
       {testModal && (
-        <ToolTestModal server={testModal.server} tool={testModal.tool} onClose={() => setTestModal(null)} />
+        <ToolTestModal
+          server={testModal.server}
+          tool={testModal.tool}
+          descriptionPtBr={translatedDescriptions[`${testModal.server.name}::${testModal.tool.name}::${testModal.tool.description}`]}
+          onTranslate={() => void translateTool(testModal.server, testModal.tool)}
+          onClose={() => setTestModal(null)}
+        />
       )}
     </div>
   )

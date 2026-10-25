@@ -71,12 +71,14 @@ import type { DelegationService } from './services/delegation'
 import { delegationConfigInput, mcpServerAddInput, mcpApprovalInput } from '@shared/schemas'
 import { clearAllCache, getCacheStats } from './db/repos/cache'
 import { getApprovals, logMcpCall, setApproval } from './db/repos/mcp'
+import { getMcpTranslation, saveMcpTranslation } from './db/repos/mcpTranslations'
 import type { McpService } from './services/mcp'
 import { importFromFile, loadMcpFile, saveMcpFile } from './mcpConfig'
 import type { McpToolApproval } from '@shared/mcp'
 import { getDelegationConfig, listDelegations, saveDelegationConfig } from './db/repos/delegations'
 import { handoff } from './services/handoff'
 import type { PromptGenerator } from './services/promptGen'
+import { cleanReply } from './services/promptGen'
 import type { Scheduler } from './services/scheduler'
 
 export interface IpcContext {
@@ -449,6 +451,26 @@ export function registerIpc(ctx: IpcContext): void {
     const result = await mcpService.callTool(serverName, toolName, args)
     logMcpCall(db, serverName, toolName, result.isError ? 'error' : 'ok', result.durationMs)
     return result
+  })
+
+  handle(channels.mcpTranslateTool, async (rawTool, rawDescription) => {
+    const toolName = z.string().min(1).max(200).parse(rawTool)
+    const originalDescription = z.string().trim().min(1).max(20_000).parse(rawDescription)
+    const cached = getMcpTranslation(db, toolName, originalDescription)
+    if (cached) return cached
+    const agent = listAgents(db)[0]
+    if (!agent) throw new Error('Configure ao menos um agente para traduzir descrições MCP.')
+    const result = await chat.clientFor(agent.providerId).chat({
+      model: agent.model,
+      system: 'Você traduz descrições técnicas de ferramentas para português do Brasil. Preserve nomes de parâmetros, caminhos, URLs e código. Responda somente com a tradução.',
+      messages: [{ role: 'user', content: `Nome da ferramenta: ${toolName}\nDescrição original:\n${originalDescription}` }],
+      temperature: 0.1,
+      signal: AbortSignal.timeout(30_000)
+    }, () => undefined)
+    const translated = cleanReply(result.text)
+    if (!translated) throw new Error('O modelo devolveu uma tradução vazia.')
+    saveMcpTranslation(db, toolName, originalDescription, translated)
+    return translated
   })
 
   handle(channels.mcpImport, async () => {
