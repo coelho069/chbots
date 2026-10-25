@@ -1,0 +1,10 @@
+﻿node_modules/
+build-out/
+release/
+out/
+dist/
+*.log
+.env
+.env.*
+*.db
+*.sqlite

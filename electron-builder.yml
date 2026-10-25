@@ -1,0 +1,31 @@
+appId: com.mateus.chbots
+productName: CH BOTS
+asar: true
+# Sem auto-update: não gera latest.yml nem publica nada.
+publish: null
+directories:
+  buildResources: resources
+  output: build-out
+files:
+  - out/main/**
+  - out/preload/**
+  - out/renderer/**
+  - resources/icon.png
+  - package.json
+  - "!**/*.map"
+  - "!**/*.test.*"
+  - "!**/tests/**"
+  - "!**/*.md"
+  - "!**/node_modules/.cache/**"
+win:
+  target: nsis
+  icon: resources/icon.png
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  shortcutName: CH BOTS
+  artifactName: CH-BOTS-Setup.exe
+  # Sem differential update: não gera .blockmap.
+  differentialPackage: false
+portable:
+  artifactName: CH-BOTS-Portable.exe

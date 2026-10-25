@@ -1,0 +1,639 @@
+/* Fluxos: usa os tokens do Pilotos; o React Flow entra só com o CSS estrutural (base.css). */
+
+/* ---- Sidebar esquerda de drag ---- */
+.flow-sidebar {
+  width: 160px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 10px;
+  overflow-y: auto;
+}
+.flow-sidebar h4 {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 0 0 4px;
+}
+.drag-item {
+  padding: 7px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  user-select: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+.drag-item:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-2));
+}
+.drag-item:disabled,
+.drag-item[aria-disabled='true'] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.drag-item svg {
+  flex-shrink: 0;
+}
+
+/* ---- Nó com erro de validação ---- */
+.fnode.fnode-invalid {
+  border-color: var(--st-error) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--st-error) 25%, transparent);
+}
+
+/* ---- Barra de progresso de execução ---- */
+.flow-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.flow-progress-bar {
+  height: 4px;
+  width: 80px;
+  background: var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.flow-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+/* ---- Minimap ---- */
+.react-flow__minimap {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+}
+.react-flow__minimap-mask {
+  fill: color-mix(in srgb, var(--accent) 12%, transparent) !important;
+}
+.react-flow__minimap-node {
+  fill: var(--border) !important;
+}
+
+/* ---- Modal lado a lado (entrada / saída) ---- */
+.step-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.step-col-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.step-col-head h4 {
+  margin: 0;
+}
+.copy-btn {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  cursor: pointer;
+  color: var(--text);
+}
+.copy-btn:hover {
+  border-color: var(--accent);
+}
+
+/* ---- Toolbar extra ---- */
+.undo-redo {
+  display: flex;
+  gap: 2px;
+}
+.undo-redo button {
+  padding: 3px 8px;
+  font-size: 13px;
+}
+
+/* ---- Template picker ---- */
+.template-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+.template-btn {
+  text-align: left;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: border-color 0.15s;
+}
+.template-btn:hover {
+  border-color: var(--accent);
+}
+
+:root {
+  --st-running: #e2a400;
+  --st-success: #1d9a6c;
+  --st-error: #cf3f3f;
+  --st-skipped: #8d95a3;
+  --kind-trigger: #8a63d2;
+  --kind-news: #2f80c9;
+  --kind-promptgen: #c2459b;
+  --kind-agent: var(--accent);
+  --kind-condition: #d4882a;
+  --kind-output: #16a37f;
+  --kind-memory: #3a9fc4;
+  --kind-delegate: #e05c2a;
+  --edge: #9aa3b2;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --st-running: #f5c400;
+    --edge: #5d6677;
+  }
+}
+
+.flows-page .empty-state {
+  padding: 20px;
+}
+
+.flow-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+.flow-editor.flow-fs {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: var(--bg);
+}
+
+.flow-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-wrap: wrap;
+}
+.palette {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.toolbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.seg button {
+  border: none;
+  border-radius: 0;
+  background: var(--surface);
+}
+.seg button.active {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+.problems-badge {
+  font-size: 12px;
+  color: var(--st-running);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 1px 10px;
+  cursor: help;
+}
+
+.flow-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  min-height: 0;
+}
+.flow-canvas {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg);
+}
+.flow-side {
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  overflow: auto;
+  padding: 16px;
+}
+.flow-side .form {
+  gap: 12px;
+}
+.problems {
+  font-size: 13px;
+  border-left: 3px solid var(--st-running);
+  padding: 6px 10px;
+  background: var(--surface-2);
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+.problems ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+/* Canvas */
+.flow-bg {
+  color: var(--border);
+}
+.react-flow__edge-path,
+.react-flow__connection-path {
+  stroke: var(--edge);
+  stroke-width: 1.6;
+}
+.react-flow__arrowhead polyline,
+.react-flow__edge marker path {
+  fill: var(--edge);
+  stroke: var(--edge);
+}
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: var(--accent);
+  stroke-width: 2.2;
+}
+.fedge-active .react-flow__edge-path {
+  stroke: var(--st-success);
+  stroke-width: 2.4;
+}
+.react-flow__edge-textbg {
+  fill: var(--surface);
+}
+.react-flow__edge-text {
+  fill: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+}
+.fedge-true .react-flow__edge-text {
+  fill: var(--st-success);
+}
+.fedge-false .react-flow__edge-text {
+  fill: var(--st-error);
+}
+
+.flow-controls {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
+}
+.flow-controls .react-flow__controls-button {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--surface);
+  padding: 6px;
+  display: grid;
+  place-items: center;
+}
+.flow-controls .react-flow__controls-button:last-child {
+  border-bottom: none;
+}
+.flow-controls .react-flow__controls-button svg {
+  width: 12px;
+  height: 12px;
+  fill: var(--text);
+}
+.react-flow__attribution {
+  background: transparent;
+  font-size: 10px;
+}
+.react-flow__attribution a {
+  color: var(--muted);
+}
+
+/* Nós */
+/* o base.css dá borda ao tipo "output" do React Flow; aqui a borda e a seleção são do próprio .fnode */
+.flow-canvas .react-flow__node-output,
+.flow-canvas .react-flow__node-output.selected,
+.flow-canvas .react-flow__node-output:focus,
+.flow-canvas .react-flow__node-output:focus-visible {
+  border: none;
+}
+.fnode {
+  width: 210px;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.08);
+  font-size: 12px;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s,
+    opacity 0.2s;
+}
+.fnode.is-selected {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.fnode-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px 5px;
+  border-bottom: 1px solid var(--border);
+}
+.fnode-kind {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--kind-agent) 15%, transparent);
+  color: var(--kind-agent);
+  flex-shrink: 0;
+}
+.fnode-trigger .fnode-kind {
+  background: color-mix(in srgb, var(--kind-trigger) 15%, transparent);
+  color: var(--kind-trigger);
+}
+.fnode-news .fnode-kind {
+  background: color-mix(in srgb, var(--kind-news) 15%, transparent);
+  color: var(--kind-news);
+}
+.fnode-promptgen .fnode-kind {
+  background: color-mix(in srgb, var(--kind-promptgen) 15%, transparent);
+  color: var(--kind-promptgen);
+}
+.fnode-condition .fnode-kind {
+  background: color-mix(in srgb, var(--kind-condition) 15%, transparent);
+  color: var(--kind-condition);
+}
+.fnode-output .fnode-kind {
+  background: color-mix(in srgb, var(--kind-output) 15%, transparent);
+  color: var(--kind-output);
+}
+.fnode-memory .fnode-kind {
+  background: color-mix(in srgb, var(--kind-memory) 15%, transparent);
+  color: var(--kind-memory);
+}
+.fnode-delegate .fnode-kind {
+  background: color-mix(in srgb, var(--kind-delegate) 15%, transparent);
+  color: var(--kind-delegate);
+}
+.fnode-title {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.fnode-status {
+  margin-left: auto;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+.fnode-body {
+  padding: 7px 10px 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.fnode-line {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.fnode-line.strong {
+  font-weight: 600;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.fnode-line.tiny {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.warn-text {
+  color: var(--st-running);
+  font-weight: 500;
+}
+.fnode-branches {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  margin-top: 4px;
+  padding-right: 4px;
+}
+.branch {
+  font-size: 10.5px;
+  font-weight: 700;
+}
+.branch-true {
+  color: var(--st-success);
+}
+.branch-false {
+  color: var(--st-error);
+}
+
+.fhandle {
+  width: 11px;
+  height: 11px;
+  background: var(--surface);
+  border: 2px solid var(--edge);
+  border-radius: 50%;
+}
+.mode-edit .fhandle:hover {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+.fhandle-true {
+  border-color: var(--st-success);
+}
+.fhandle-false {
+  border-color: var(--st-error);
+}
+.mode-run .fhandle {
+  pointer-events: none;
+}
+.mode-run .fnode {
+  cursor: pointer;
+}
+
+/* Estados de execução */
+.fnode.status-running {
+  border-color: var(--st-running);
+  animation: fnode-pulse 1.3s ease-out infinite;
+}
+.fnode.status-running .fnode-status {
+  color: var(--st-running);
+}
+.fnode.status-success {
+  border-color: var(--st-success);
+}
+.fnode.status-success .fnode-status {
+  color: var(--st-success);
+}
+.fnode.status-error {
+  border-color: var(--st-error);
+}
+.fnode.status-error .fnode-status {
+  color: var(--st-error);
+}
+.fnode.status-skipped {
+  border-style: dashed;
+  border-color: var(--st-skipped);
+  opacity: 0.6;
+}
+.fnode.status-skipped .fnode-status {
+  color: var(--st-skipped);
+}
+
+@keyframes fnode-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--st-running) 55%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 12px color-mix(in srgb, var(--st-running) 0%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--st-running) 0%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fnode.status-running {
+    animation: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--st-running) 45%, transparent);
+  }
+}
+
+/* Painel de execuções */
+.run-side h3 {
+  margin-bottom: 4px;
+}
+.run-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.run-item {
+  width: 100%;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  background: var(--surface);
+}
+.run-item.active {
+  border-color: var(--accent);
+  background: var(--surface-2);
+}
+.run-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.run-path {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+/* Modal */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 0.45);
+  display: grid;
+  place-items: center;
+  z-index: 20;
+  padding: 24px;
+}
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  width: min(760px, 100%);
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 12px 40px rgb(0 0 0 / 0.3);
+}
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-body {
+  padding: 14px 16px 18px;
+  overflow: auto;
+}
+.step-detail section {
+  margin-top: 12px;
+}
+.step-detail h4 {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.payload {
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 260px;
+  overflow: auto;
+  font: 12.5px/1.5 Consolas, 'Cascadia Mono', monospace;
+}
+.step-success {
+  color: var(--st-success);
+}
+.step-error {
+  color: var(--st-error);
+}
+.step-running {
+  color: var(--st-running);
+}
+.step-skipped {
+  color: var(--st-skipped);
+}
