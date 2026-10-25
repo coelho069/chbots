@@ -87,6 +87,7 @@ export function McpPage() {
   const [editName, setEditName] = useState('')
   const [form, setForm] = useState<FormState>(emptyForm())
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [testModal, setTestModal] = useState<{ server: McpServerInfo; tool: McpToolDef } | null>(null)
 
@@ -101,19 +102,20 @@ export function McpPage() {
     return unsub
   }, [reload])
 
-  function openAdd() { setForm(emptyForm()); setEditName(''); setModal('add') }
-  function openEdit(s: McpServerInfo) { setForm(serverToForm(s)); setEditName(s.name); setModal('edit') }
+  function openAdd() { setForm(emptyForm()); setSaveError(null); setEditName(''); setModal('add') }
+  function openEdit(s: McpServerInfo) { setForm(serverToForm(s)); setSaveError(null); setEditName(s.name); setModal('edit') }
 
   async function save() {
-    if (!form.name.trim()) { toast.error('Informe o nome do servidor'); return }
+    setSaveError(null)
+    if (!form.name.trim()) { setSaveError('Informe o nome do servidor'); return }
     let config: McpServerConfig
-    try { config = formToConfig(form) } catch (e) { toast.error(errorMessage(e)); return }
+    try { config = formToConfig(form) } catch (e) { setSaveError(errorMessage(e)); return }
     setSaving(true)
     try {
       if (modal === 'add') setServers(await api.mcp.add(form.name.trim(), config, form.enabled))
       else setServers(await api.mcp.update(editName, config))
       setModal(null)
-    } catch (e) { toast.error(errorMessage(e)) } finally { setSaving(false) }
+    } catch (e) { setSaveError(errorMessage(e)) } finally { setSaving(false) }
   }
 
   async function remove(name: string) {
@@ -236,6 +238,7 @@ export function McpPage() {
             )}
 
             <div className="modal-footer">
+              {saveError && <p className="mcp-error small" role="alert">{saveError}</p>}
               <button onClick={() => setModal(null)}>Cancelar</button>
               <button onClick={() => void save()} disabled={saving}>{saving ? 'Salvando…' : 'Salvar'}</button>
             </div>

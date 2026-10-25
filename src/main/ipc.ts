@@ -387,6 +387,13 @@ export function registerIpc(ctx: IpcContext): void {
   // ---- MCP ----
   handle(channels.mcpList, () => mcpService.list())
 
+  // Persistir configuração não deve aguardar o handshake do servidor.
+  const loadMcpInBackground = (entries: ReturnType<typeof loadMcpFile>): void => {
+    void mcpService.loadAll(entries).catch((error: unknown) => {
+      console.error('Falha ao atualizar conexões MCP após salvar:', error)
+    })
+  }
+
   handle(channels.mcpAdd, async (rawName, rawConfig, rawEnabled) => {
     const name = z.string().trim().min(1).max(80).parse(rawName)
     const { config } = mcpServerAddInput.parse({ name, config: rawConfig, enabled: rawEnabled ?? true })
@@ -394,7 +401,7 @@ export function registerIpc(ctx: IpcContext): void {
     if (entries.some((e) => e.name === name)) throw new Error(`Servidor "${name}" já existe`)
     entries.push({ name, enabled: rawEnabled !== false, config })
     saveMcpFile(ctx.dataDir, entries)
-    await mcpService.loadAll(entries)
+    loadMcpInBackground(entries)
     return mcpService.list()
   })
 
@@ -406,7 +413,7 @@ export function registerIpc(ctx: IpcContext): void {
     const { config } = mcpServerAddInput.parse({ name, config: rawConfig })
     entries[idx] = { ...entries[idx]!, config }
     saveMcpFile(ctx.dataDir, entries)
-    await mcpService.loadAll(entries)
+    loadMcpInBackground(entries)
     return mcpService.list()
   })
 
@@ -415,7 +422,7 @@ export function registerIpc(ctx: IpcContext): void {
     await mcpService.disconnect(name)
     const entries = loadMcpFile(ctx.dataDir).filter((e) => e.name !== name)
     saveMcpFile(ctx.dataDir, entries)
-    await mcpService.loadAll(entries)
+    loadMcpInBackground(entries)
     return mcpService.list()
   })
 
@@ -427,7 +434,7 @@ export function registerIpc(ctx: IpcContext): void {
     if (!entry) throw new Error(`Servidor "${name}" não encontrado`)
     entry.enabled = enabled
     saveMcpFile(ctx.dataDir, entries)
-    await mcpService.loadAll(entries)
+    loadMcpInBackground(entries)
     return mcpService.list()
   })
 
@@ -457,7 +464,7 @@ export function registerIpc(ctx: IpcContext): void {
       if (!merged.some((e) => e.name === ie.name)) merged.push(ie)
     }
     saveMcpFile(ctx.dataDir, merged)
-    await mcpService.loadAll(merged)
+    loadMcpInBackground(merged)
     return mcpService.list()
   })
 
