@@ -4,6 +4,7 @@ import { api, formatDateTime } from '../api'
 import type { ChatTarget } from '../App'
 import { CloseButton, useCloseHandler } from '../CloseContext'
 import { useToast } from '../toast'
+import { MarkdownContent } from '../components/MarkdownContent'
 
 interface Props {
   agents: Agent[]
@@ -527,7 +528,7 @@ const MessageBubble = memo(function MessageBubble({
   return (
     <div className={`bubble ${m.role}`}>
       {m.fromAgentId !== null && <div className="bubble-meta">repassado de {agentName(m.fromAgentId)}</div>}
-      <div className="bubble-text">{m.content || <em className="muted">(resposta vazia)</em>}</div>
+      <div className="bubble-text">{m.content ? <MarkdownContent source={m.content} /> : <em className="muted">(resposta vazia)</em>}</div>
       {m.role === 'assistant' && m.id > 0 && (
         <div className="bubble-actions">
           {m.tokensOut !== null && <span className="muted">{m.tokensOut} tokens</span>}

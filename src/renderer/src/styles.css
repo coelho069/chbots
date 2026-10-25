@@ -559,6 +559,22 @@ label.check {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+.markdown-content { white-space: normal; overflow-wrap: anywhere; line-height: 1.55; }
+.markdown-content > :first-child { margin-top: 0; }
+.markdown-content > :last-child { margin-bottom: 0; }
+.markdown-content p { margin: 0.35em 0; }
+.markdown-content h1, .markdown-content h2, .markdown-content h3,
+.markdown-content h4, .markdown-content h5, .markdown-content h6 { margin: 0.65em 0 0.3em; line-height: 1.25; }
+.markdown-content h1 { font-size: 1.35em; }
+.markdown-content h2 { font-size: 1.2em; }
+.markdown-content h3 { font-size: 1.08em; }
+.markdown-content ul, .markdown-content ol { margin: 0.45em 0; padding-left: 1.4em; }
+.markdown-content li { margin: 0.18em 0; }
+.markdown-content :not(pre) > code, .markdown-content code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+.markdown-content :not(pre) > code { padding: 0.12em 0.35em; border-radius: 4px; background: color-mix(in srgb, var(--accent) 14%, transparent); font-size: 0.9em; }
+.markdown-code-block { margin: 0.65em 0; overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: #17181d; }
+.markdown-code-header { padding: 0.35rem 0.65rem; border-bottom: 1px solid var(--border); color: var(--muted); font: 0.72rem ui-monospace, SFMono-Regular, Consolas, monospace; text-transform: lowercase; }
+.markdown-code-block pre { margin: 0; padding: 0.7rem; overflow-x: auto; color: #e8e8e8; font: 0.82rem/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre; }
 .bubble-meta {
   font-size: 12px;
   color: var(--muted);
