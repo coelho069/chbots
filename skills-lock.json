@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "alethe": {
+      "source": "Kc1t/alethe-orchestrate-skill",
+      "sourceType": "github",
+      "skillPath": "skills/alethe/SKILL.md",
+      "computedHash": "07f9daea710c25fd99c7221efbde694bb8a9bd02d1a062808e092284cf0fd980"
+    }
+  }
+}
