@@ -1,4 +1,18 @@
 import type { FlowDetail, FlowRun, FlowRunStep, FlowSaveInput, FlowStepEvent, FlowSummary } from './flows'
+
+export interface FlowInterruptEvent {
+  runId: number
+  flowId: number
+  nodeId: string
+  nodeType: string
+  description: string
+}
+
+export interface FlowRunState {
+  vars: Record<string, string>
+  ultimoResultado: string
+  activeNodeId: string
+}
 import type { AgentInput, HandoffInput, PromptGenerateInput, ProviderInput, RoutineInput } from './schemas'
 import type { McpApprovalMap, McpApprovalRequest, McpCallResult, McpServerInfo, McpToolRef } from './mcp'
 
@@ -424,8 +438,11 @@ export interface PilotosApi {
     runs(flowId: number): Promise<FlowRun[]>
     steps(runId: number): Promise<FlowRunStep[]>
     cancel(runId: number): Promise<void>
+    status(runId: number): Promise<FlowRunState | null>
+    interruptRespond(runId: number, approved: boolean): Promise<void>
     onStep(listener: (event: FlowStepEvent) => void): () => void
     onRunsChanged(listener: (flowId: number) => void): () => void
+    onInterrupt(listener: (event: FlowInterruptEvent) => void): () => void
   }
   mcp: {
     list(): Promise<McpServerInfo[]>

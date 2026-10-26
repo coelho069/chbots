@@ -9,6 +9,7 @@ import { getProvider } from './db/repos/providers'
 import { clearExpiredCache } from './db/repos/cache'
 import { createEngineActions, defaultFlowsFolder } from './flows/actions'
 import { FlowRunner } from './flows/runner'
+import { SqliteCheckpointer, ensureCheckpointTables } from './flows/langgraphCheckpointer'
 import { PromptGenerator } from './services/promptGen'
 import { MemoryService } from './services/memory'
 import { DelegationService } from './services/delegation'
@@ -321,8 +322,12 @@ if (!app.requestSingleInstanceLock()) {
     })
     chat.deps.mcpService = mcpService
 
+    ensureCheckpointTables(db)
+    const checkpointer = new SqliteCheckpointer(db)
+
     const flowRunner = new FlowRunner({
       db,
+      checkpointer,
       actionsFor: createEngineActions({
         db,
         chat,
@@ -336,6 +341,7 @@ if (!app.requestSingleInstanceLock()) {
       }),
       onStep: (event) => send(events.flowStep, event),
       onRunsChanged: (flowId) => send(events.flowRunsChanged, flowId),
+      onInterrupt: (event) => send(events.flowInterrupt, { runId: event.runId, flowId: event.flowId, nodeId: event.value.nodeId, nodeType: event.value.nodeType, description: event.value.description }),
       onRunFinished: (flowName, run) => {
         if (!getSettings(db).notifyOnRun || !Notification.isSupported()) return
         new Notification({

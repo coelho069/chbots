@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import { channels as c, events } from '@shared/ipc'
 import type { FlowStepEvent } from '@shared/flows'
-import type { ChatChunk, DelegationCard, McpApprovalRequest, McpToolCallEvent, PageRecord, PilotosApi, SendDraft } from '@shared/types'
+import type { ChatChunk, DelegationCard, FlowInterruptEvent, McpApprovalRequest, McpToolCallEvent, PageRecord, PilotosApi, SendDraft } from '@shared/types'
 import type { OfficeEvent } from '@shared/office'
 
 const invoke = <T>(channel: string, ...args: unknown[]): Promise<T> => ipcRenderer.invoke(channel, ...args)
@@ -118,8 +118,11 @@ const api: PilotosApi = {
     runs: (flowId) => invoke(c.flowsRuns, flowId),
     steps: (runId) => invoke(c.flowsRunSteps, runId),
     cancel: (runId) => invoke(c.flowsCancel, runId),
+    status: (runId) => invoke(c.flowsStatus, runId),
+    interruptRespond: (runId, approved) => invoke(c.flowsInterruptRespond, runId, approved),
     onStep: (listener) => subscribe<FlowStepEvent>(events.flowStep, listener),
-    onRunsChanged: (listener) => subscribe<number>(events.flowRunsChanged, listener)
+    onRunsChanged: (listener) => subscribe<number>(events.flowRunsChanged, listener),
+    onInterrupt: (listener) => subscribe<FlowInterruptEvent>(events.flowInterrupt, listener)
   },
   mcp: {
     list: () => invoke(c.mcpList),

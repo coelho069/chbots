@@ -298,6 +298,10 @@ export function registerIpc(ctx: IpcContext): void {
   handle(channels.flowsRuns, (flowId) => listFlowRuns(db, id(flowId)))
   handle(channels.flowsRunSteps, (runId) => listSteps(db, id(runId)))
   handle(channels.flowsCancel, (rawRunId) => { flowRunner.cancel(id(rawRunId)) })
+  handle(channels.flowsStatus, (rawRunId) => flowRunner.status(id(rawRunId)))
+  handle(channels.flowsInterruptRespond, (rawRunId, rawApproved) => {
+    flowRunner.respondInterrupt(id(rawRunId), Boolean(rawApproved))
+  })
 
   handle(channels.settingsUpdate, (input) => saveSettings(db, settingsInput.parse(input)))
 
