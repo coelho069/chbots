@@ -7,6 +7,7 @@ import { AgentsPage } from './pages/AgentsPage'
 import { ChatPage } from './pages/ChatPage'
 import { ToastProvider, useToast } from './toast'
 import type { AgentDraft } from './pages/PromptGenPage'
+import { UpdateNotification } from './components/UpdateNotification'
 
 // Heavy pages loaded lazily to reduce initial bundle parse time
 const FlowsPage    = lazy(() => import('./flows/FlowsPage').then((m) => ({ default: m.FlowsPage })))
@@ -87,6 +88,7 @@ const TabBar = memo(function TabBar({ tabs, active, dirty, onActivate, onClose }
 export function App() {
   return (
     <ToastProvider>
+      <UpdateNotification />
       <Shell />
     </ToastProvider>
   )
