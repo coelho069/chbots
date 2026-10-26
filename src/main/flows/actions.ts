@@ -13,9 +13,10 @@ import type { EngineActions } from './engine'
 import { buildNewsUrl, fetchNews } from './news'
 import { getCachedNews, setCachedNews } from './newsCache'
 
+// Formata número com zero à esquerda (01, 02, ... 12)
 const pad = (n: number) => String(n).padStart(2, '0')
 
-// Monta o nome do arquivo a partir do modelo ({fluxo}, {data}) e remove o que o Windows não aceita.
+// Monta nome de arquivo substituindo {fluxo} e {data} no template, sanitizando para Windows
 export function renderFileName(template: string, flowName: string, date = new Date()): string {
   const stamp = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}_${pad(date.getHours())}-${pad(date.getMinutes())}`
   const raw = (template.trim() || '{fluxo}-{data}.md').replaceAll('{fluxo}', flowName).replaceAll('{data}', stamp)
@@ -27,7 +28,7 @@ export function renderFileName(template: string, flowName: string, date = new Da
   return extname(name).toLowerCase() === '.md' ? name : `${name}.md`
 }
 
-// Caminho final sempre dentro da pasta escolhida.
+// Valida que o caminho resultante fica dentro de `folder`, impedindo path traversal
 export function resolveInside(folder: string, fileName: string): string {
   const root = resolve(folder)
   const target = resolve(root, fileName)
@@ -35,6 +36,7 @@ export function resolveInside(folder: string, fileName: string): string {
   return target
 }
 
+// Factory que retorna função para salvar markdown com timestampo no nome, evitando sobrescrita
 export function createSaveMarkdown(defaultFolder: string, now: () => Date = () => new Date()) {
   return async ({ folder, fileName, content, flowName }: { folder: string; fileName: string; content: string; flowName: string }) => {
     const dir = folder.trim() || defaultFolder
@@ -55,6 +57,7 @@ export function createSaveMarkdown(defaultFolder: string, now: () => Date = () =
   }
 }
 
+// Factory que retorna ações do engine de fluxos: executar agentes, salvar markdown, buscar notícias, etc.
 export function createEngineActions(deps: {
   db: Db
   chat: ChatService
@@ -67,6 +70,7 @@ export function createEngineActions(deps: {
   const save = createSaveMarkdown(deps.defaultFolder)
   return (flowName) => ({
     async runAgent({ agentId, prompt, signal }) {
+      // Executa um nó de agente no fluxo: cria conversa, envia prompt, retorna resposta
       if (!getAgent(deps.db, agentId)) throw new Error('O agente deste nó foi excluído')
       const stamp = new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
       const conversation = insertConversation(deps.db, agentId, 'routine', `Fluxo: ${flowName} · ${stamp}`)
@@ -76,6 +80,7 @@ export function createEngineActions(deps: {
     saveMarkdown: ({ folder, fileName, content }) => save({ folder, fileName, content, flowName }),
     notify: ({ title, body }) => deps.notify(title, body.length > 240 ? `${body.slice(0, 237)}...` : body),
     fetchNews: async (args) => {
+      // Busca notícias com cache por URL; evita requisições duplicadas
       const url = buildNewsUrl(args.topic, args.language)
       const cached = getCachedNews(url)
       if (cached) return cached
@@ -85,6 +90,7 @@ export function createEngineActions(deps: {
     },
     generatePrompt: async ({ agentId, idea, signal }) => (await deps.promptGen.run(agentId, idea, signal)).record.prompt,
     memorySave: async ({ text, source, categories }) => {
+      // Salva até 20 fatos (linhas) em memória; retorna contagem de sucessos
       const lines = text.split('\n').filter((l) => l.trim())
       let saved = 0
       for (const line of lines.slice(0, 20)) {
@@ -94,15 +100,16 @@ export function createEngineActions(deps: {
       return `${saved} fato(s) salvos na memória`
     },
     memorySearch: async ({ query, categories, limit }) => {
+      // Busca fatos em memória com filtro opcional por categoria; formata resultado com metadados
       const fatos = searchFacts(deps.db, query, limit)
       const filtered = categories.length > 0 ? fatos.filter((f) => categories.includes(f.categoria)) : fatos
       if (filtered.length === 0) return 'Nenhum fato relevante na memória'
       return filtered.map((f) => `[${f.categoria}] ${f.fato} (fonte: ${f.fontes[0]?.fonte ?? '?'}, confiança: ${f.confianca})`).join('\n')
     },
     async delegateTask({ agentId, task }) {
+      // Delega tarefa para outro agente; o primeiro agente do fluxo é a origem
       if (!deps.delegation) throw new Error('Serviço de delegação não disponível')
       const agents = listAgents(deps.db)
-      // Usa o primeiro agente do fluxo como origem (sem conversa de chat ativa)
       const origem = agents[0]
       if (!origem) throw new Error('Nenhum agente cadastrado para delegar')
       const conv = insertConversation(deps.db, origem.id, 'routine', `Fluxo delegação → ${getAgent(deps.db, agentId)?.name ?? agentId}`)
@@ -116,6 +123,7 @@ export function createEngineActions(deps: {
       })
     },
     async mcpCallTool({ serverName, toolName, args }) {
+      // Executa ferramenta MCP e registra chamada no banco; lança erro se falhar
       if (!deps.mcpService) throw new Error('Serviço MCP não disponível')
       const result = await deps.mcpService.callTool(serverName, toolName, args)
       logMcpCall(deps.db, serverName, toolName, result.isError ? 'error' : 'ok', result.durationMs)
@@ -125,4 +133,5 @@ export function createEngineActions(deps: {
   })
 }
 
+// Pasta padrão para salvar fluxos: Documents/CH BOTS
 export const defaultFlowsFolder = (documents: string) => join(documents, 'CH BOTS')
