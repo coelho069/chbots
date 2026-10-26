@@ -1,0 +1,14 @@
+{
+  "name": "screen-capture",
+  "version": "1.0.0",
+  "description": "Window and screen-region capture for the CH BOTS desktop app",
+  "main": "index.ts",
+  "private": true,
+  "gypfile": true,
+  "dependencies": {
+    "node-addon-api": "^8.0.0"
+  },
+  "scripts": {
+    "install": "node-gyp rebuild"
+  }
+}
