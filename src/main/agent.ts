@@ -15,7 +15,10 @@ import { ToolExecutor, type ToolCallRequest, type ToolCallResult } from './execu
 import TOOL_REGISTRY from './registry';
 import { getAgent } from '../db/repos/agents';
 import { getProvider } from '../db/repos/providers';
+import { listMessages } from '../db/repos/conversations';
 import type { ChatTurn } from '../llm/provider';
+import type { Db } from '../db/connection';
+import type { Message } from '@shared/types';
 
 // ============================================================
 //  LlmToolDef — Definição de ferramenta para LLM (OpenAI-style)
@@ -87,6 +90,23 @@ export function buildToolDefs(): LlmToolDef[] {
         required: t.parameters.required
       }
     }
+  }));
+}
+
+// ============================================================
+//  loadHistory — Carrega histórico completo de uma conversa
+//
+//  Busca todas as mensagens do banco de dados e converte para
+//  o formato ChatTurn esperado pelo LLM.
+//
+//  Retorna histórico em ordem cronológica (mais antigos primeiro).
+// ============================================================
+
+export function loadHistory(db: Db, conversationId: number): ChatTurn[] {
+  const messages = listMessages(db, conversationId);
+  return messages.map((msg: Message) => ({
+    role: msg.role,
+    content: msg.content
   }));
 }
 
