@@ -17,9 +17,6 @@ files:
   - "!/**/tests/**"
   - "!/**/*.md"
   - "!/**/node_modules/.cache/**"
-# Módulos nativos (.node) precisam sair do asar para serem carregados pelo Node
-extraFiles:
-  - out/main/native/**/*.node
 win:
   target: nsis
   icon: resources/icon.png
