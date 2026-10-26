@@ -153,6 +153,18 @@ const flowNode = z.discriminatedUnion('type', [
       timeoutSec
     })
   }),
+  z.object({
+    id: nodeId,
+    type: z.literal('claude-code'),
+    position,
+    data: z.object({
+      tarefa: z.string().max(10_000),
+      pasta: z.string().max(500),
+      modelo: z.string().trim().regex(/^[\w.:/][\w.:/-]*$/, 'Modelo inválido').max(100),
+      // até 2 h: o Claude Code local em CPU leva minutos por chamada
+      timeoutSec: z.number().int().min(5).max(7200)
+    })
+  }),
 ])
 
 export const flowGraphInput = z.object({
@@ -191,7 +203,9 @@ export const settingsInput = z.object({
   minimizeToTray: z.boolean(),
   notifyOnRun: z.boolean(),
   retentionDays: z.number().int().min(1).max(3650).default(30),
-  apiToken: z.string().optional()
+  apiToken: z.string().optional(),
+  claudeCodeModel: z.string().trim().regex(/^[\w.:/][\w.:/-]*$/, 'Modelo inválido').max(100).optional(),
+  claudeCodeTimeoutMin: z.number().int().min(1).max(120).optional()
 })
 
 // ---- MCP ----

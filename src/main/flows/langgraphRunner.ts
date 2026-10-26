@@ -41,7 +41,7 @@ export interface InterruptValue {
 }
 
 // Nós que requerem aprovação antes de executar
-const DANGEROUS_TYPES = new Set(['output', 'delegate', 'mcp-tool'])
+const DANGEROUS_TYPES = new Set(['output', 'delegate', 'mcp-tool', 'claude-code'])
 
 function isDangerous(node: FlowNode): boolean {
   if (node.type === 'output' && node.data.action === 'notify') return false
@@ -260,6 +260,10 @@ async function runFlowNode(
       let parsedArgs: Record<string, unknown>
       try { parsedArgs = JSON.parse(rawArgs) as Record<string, unknown> } catch { throw new Error('Nó Ferramenta MCP: JSON inválido') }
       return { text: await actions.mcpCallTool({ serverName: node.data.serverName, toolName: node.data.toolName, args: parsedArgs, signal }) }
+    }
+    case 'claude-code': {
+      const tarefa = node.data.tarefa.trim() ? node.data.tarefa.replace(/\{\{entrada\}\}/g, input.trim()) : input
+      return { text: await actions.claudeCode({ tarefa, pasta: node.data.pasta, modelo: node.data.modelo, signal }) }
     }
   }
 }

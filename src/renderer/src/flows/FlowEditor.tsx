@@ -49,11 +49,11 @@ function savePref<T>(key: string, v: T): void {
 // ---- Palette groups ----
 const paletteIcons: Partial<Record<FlowNodeType, string>> = {
   trigger: '⚡', agent: '🤖', promptgen: '✍', delegate: '↗',
-  'mcp-tool': '🔧', news: '📰', condition: '◇', memory: '💾', output: '📤'
+  'mcp-tool': '🔧', news: '📰', condition: '◇', memory: '💾', output: '📤', 'claude-code': '💻'
 }
 const paletteGroups: { label: string; types: FlowNodeType[] }[] = [
   { label: 'Agentes', types: ['agent', 'promptgen', 'delegate'] },
-  { label: 'Ferramentas', types: ['mcp-tool', 'news'] },
+  { label: 'Ferramentas', types: ['mcp-tool', 'news', 'claude-code'] },
   { label: 'Lógica', types: ['condition', 'memory'] },
   { label: 'Saída', types: ['output'] }
 ]

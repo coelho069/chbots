@@ -2,7 +2,7 @@
 
 export const MAX_FLOW_NODES = 10
 
-export const flowNodeTypes = ['trigger', 'news', 'promptgen', 'agent', 'condition', 'output', 'memory', 'delegate', 'mcp-tool'] as const
+export const flowNodeTypes = ['trigger', 'news', 'promptgen', 'agent', 'condition', 'output', 'memory', 'delegate', 'mcp-tool', 'claude-code'] as const
 export type FlowNodeType = (typeof flowNodeTypes)[number]
 
 export const flowNodeLabels: Record<FlowNodeType, string> = {
@@ -14,7 +14,8 @@ export const flowNodeLabels: Record<FlowNodeType, string> = {
   output: 'Saída',
   memory: 'Memória',
   delegate: 'Delegar',
-  'mcp-tool': 'Ferramenta MCP'
+  'mcp-tool': 'Ferramenta MCP',
+  'claude-code': 'Claude Code'
 }
 
 // Edições do Google Notícias: idioma da interface (hl), país (gl) e edição (ceid).
@@ -92,6 +93,14 @@ export interface McpToolNodeData {
   timeoutSec: number
 }
 
+// Roda o Claude Code CLI local (Ollama). Tarefa vazia = usa a entrada; aceita {{entrada}}.
+export interface ClaudeCodeNodeData {
+  tarefa: string
+  pasta: string
+  modelo: string
+  timeoutSec: number
+}
+
 export interface FlowNodeDataMap {
   trigger: TriggerData
   news: NewsData
@@ -102,6 +111,7 @@ export interface FlowNodeDataMap {
   memory: MemoryNodeData
   delegate: DelegateNodeData
   'mcp-tool': McpToolNodeData
+  'claude-code': ClaudeCodeNodeData
 }
 
 export type FlowNode = {
@@ -190,7 +200,8 @@ export function defaultNodeData<T extends FlowNodeType>(type: T): FlowNodeDataMa
     output: { action: 'save_md', folder: '', fileName: '{fluxo}-{data}.md', title: '', timeoutSec: 30 },
     memory: { mode: 'save', categories: [], limit: 10, source: '', timeoutSec: 30 },
     delegate: { agentId: null, timeoutSec: 120 },
-    'mcp-tool': { serverName: '', toolName: '', args: '{}', timeoutSec: 60 }
+    'mcp-tool': { serverName: '', toolName: '', args: '{}', timeoutSec: 60 },
+    'claude-code': { tarefa: '', pasta: '', modelo: 'qwen2.5:0.5b', timeoutSec: 300 }
   }
   return defaults[type]
 }
@@ -303,6 +314,8 @@ export function validateGraph(graph: FlowGraph): string[] {
     if (n.type === 'memory' && n.data.mode === 'save' && !n.data.source.trim()) errors.push(`${ref(n.id)}: informe a fonte.`)
     if (n.type === 'condition' && !n.data.value) errors.push(`${ref(n.id)}: informe o texto a procurar.`)
     if (n.type === 'news' && !n.data.topic.trim()) errors.push(`${ref(n.id)}: informe o tema.`)
+    if (n.type === 'claude-code' && !n.data.pasta.trim()) errors.push(`${ref(n.id)}: informe a pasta.`)
+    if (n.type === 'claude-code' && !n.data.modelo.trim()) errors.push(`${ref(n.id)}: informe o modelo.`)
   }
   return errors
 }

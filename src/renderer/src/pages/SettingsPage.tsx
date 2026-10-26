@@ -32,11 +32,13 @@ export function SettingsPage({ providers, onProvidersChanged }: Props) {
   const [settings, setSettings] = useState<Settings | null>(null)
   const [dataDir, setDataDir] = useState('')
   const [perfStats, setPerfStats] = useState<CacheStats | null>(null)
+  const [claudeModel, setClaudeModel] = useState('')
 
   useEffect(() => {
     Promise.all([api.settings.get(), api.settings.dataDir(), api.perf.stats()])
       .then(([s, dir, stats]) => {
         setSettings(s)
+        setClaudeModel(s.claudeCodeModel)
         setDataDir(dir)
         setPerfStats(stats)
       })
@@ -265,6 +267,33 @@ export function SettingsPage({ providers, onProvidersChanged }: Props) {
               style={{ width: '80px', marginLeft: '8px' }}
             />
           </label>
+        </section>
+      )}
+
+      {settings && (
+        <section className="card">
+          <h2>Claude Code local</h2>
+          <label>
+            Modelo do Claude Code local
+            <input
+              className="mono"
+              value={claudeModel}
+              onChange={(e) => setClaudeModel(e.target.value)}
+              onBlur={() => {
+                const v = claudeModel.trim()
+                if (v && v !== settings.claudeCodeModel) void updateSettings({ claudeCodeModel: v })
+              }}
+              placeholder="qwen2.5:0.5b"
+            />
+            <span className="muted small">Modelo do Ollama usado pela ferramenta claude_code dos agentes.</span>
+          </label>
+          <div className="actions">
+            <button onClick={async () => {
+              try {
+                toast.info(`Ollama ok (versão ${await api.settings.testOllama()})`)
+              } catch (err) { toast.error(err) }
+            }}>Testar Ollama</button>
+          </div>
         </section>
       )}
 

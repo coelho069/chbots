@@ -4,6 +4,7 @@ import {
   newsLanguageCodes,
   newsLanguages,
   type AgentNodeData,
+  type ClaudeCodeNodeData,
   type ConditionData,
   type DelegateNodeData,
   type FlowNodeDataMap,
@@ -40,6 +41,7 @@ export function Inspector({ node, agents, onChange, onDelete }: Props) {
       {node.type === 'output' && <OutputForm cfg={node.data.cfg as OutputData} onChange={onChange} />}
       {node.type === 'memory' && <MemoryForm cfg={node.data.cfg as MemoryNodeData} onChange={onChange} />}
       {node.type === 'delegate' && <DelegateForm cfg={node.data.cfg as DelegateNodeData} agents={agents} onChange={onChange} />}
+      {node.type === 'claude-code' && <ClaudeCodeForm cfg={node.data.cfg as ClaudeCodeNodeData} onChange={onChange} />}
       {node.type !== 'trigger' && (
         <div className="actions">
           <button type="button" className="danger" onClick={onDelete}>
@@ -283,6 +285,41 @@ function DelegateForm({ cfg, agents, onChange }: { cfg: DelegateNodeData; agents
         Tempo limite (segundos)
         <input type="number" min={5} max={600} value={cfg.timeoutSec} onChange={(e) => onChange({ timeoutSec: clampTimeout(Number(e.target.value)) })} />
       </label>
+    </>
+  )
+}
+
+function ClaudeCodeForm({ cfg, onChange }: { cfg: ClaudeCodeNodeData; onChange: (p: Partial<ClaudeCodeNodeData>) => void }) {
+  return (
+    <>
+      <label>
+        Tarefa
+        <textarea
+          rows={4}
+          value={cfg.tarefa}
+          onChange={(e) => onChange({ tarefa: e.target.value })}
+          placeholder="vazio = usa a entrada recebida"
+        />
+        <span className="muted small">
+          Use <code>{'{{entrada}}'}</code> para inserir a entrada recebida na tarefa.
+        </span>
+      </label>
+      <label>
+        Pasta
+        <input className="mono" value={cfg.pasta} onChange={(e) => onChange({ pasta: e.target.value })} placeholder="ex.: D:\projetos\meu-app" />
+      </label>
+      <label>
+        Modelo (Ollama)
+        <input className="mono" value={cfg.modelo} onChange={(e) => onChange({ modelo: e.target.value })} placeholder="qwen2.5:0.5b" />
+      </label>
+      <label>
+        Tempo limite (segundos)
+        <input type="number" min={5} max={600} value={cfg.timeoutSec} onChange={(e) => onChange({ timeoutSec: clampTimeout(Number(e.target.value)) })} />
+      </label>
+      <p className="muted small">
+        Roda o Claude Code local apontado para o Ollama (localhost:11434). Pode ler e editar arquivos da pasta; pede
+        aprovação antes de executar. O Claude Code para sozinho após 5 min.
+      </p>
     </>
   )
 }

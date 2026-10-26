@@ -1,6 +1,7 @@
 import { copyFileSync, existsSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { app, BrowserWindow, Menu, nativeImage, nativeTheme, Notification, safeStorage, shell, Tray } from 'electron'
+import { CLAUDE_CODE_TOOL_DEF, handleClaudeCodeTool } from './agent'
+import { app, BrowserWindow, dialog, Menu, nativeImage, nativeTheme, Notification, safeStorage, shell, Tray } from 'electron'
 import { CLOSE_CURRENT_ACCELERATOR, events } from '@shared/ipc'
 import type { ChatChunk } from '@shared/types'
 import { openDatabase, type Db } from './db/connection'
@@ -258,7 +259,8 @@ if (!app.requestSingleInstanceLock()) {
             },
             required: ['channel', 'text']
           }
-        }
+        },
+        CLAUDE_CODE_TOOL_DEF
       ],
       // shortcut: envio real não implementado; adicionar SMTP/Slack webhook quando credenciais estiverem configuradas
       async handle(name, input, conversationId) {
@@ -288,6 +290,22 @@ if (!app.requestSingleInstanceLock()) {
                 resolve('Envio cancelado pelo usuário.')
               }
             })
+          })
+        }
+        if (name === 'claude_code') {
+          return handleClaudeCodeTool(input, getSettings(db).claudeCodeModel, async (tarefa, pasta) => {
+            const options = {
+              type: 'warning' as const,
+              buttons: ['Executar', 'Cancelar'],
+              defaultId: 1,
+              cancelId: 1,
+              title: 'Claude Code local',
+              message: 'O agente quer rodar o Claude Code local (pode ler e editar arquivos).',
+              detail: `Pasta: ${pasta}\n\nTarefa: ${tarefa.slice(0, 1000)}`
+            }
+            const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+            const { response } = win ? await dialog.showMessageBox(win, options) : await dialog.showMessageBox(options)
+            return response === 0
           })
         }
         return 'Ferramenta desconhecida'

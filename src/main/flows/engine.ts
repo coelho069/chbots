@@ -21,6 +21,7 @@ export interface EngineActions {
   memorySearch(args: { query: string; categories: string[]; limit: number }): Promise<string>
   delegateTask(args: { agentId: number; task: string; flowName: string }): Promise<string>
   mcpCallTool(args: { serverName: string; toolName: string; args: Record<string, unknown>; signal: AbortSignal }): Promise<string>
+  claudeCode(args: { tarefa: string; pasta: string; modelo: string; signal: AbortSignal }): Promise<string>
   onOfficeEvent?: (botId: number, ev: Omit<import('@shared/office').OfficeEvent, 'botId'>) => void
 }
 
@@ -216,6 +217,10 @@ export async function executeFlow(graph: FlowGraph, opts: ExecuteOptions): Promi
         try { parsedArgs = JSON.parse(rawArgs) as Record<string, unknown> } catch { throw new Error('Nó Ferramenta MCP: JSON de argumentos inválido') }
         const text = await actions.mcpCallTool({ serverName: node.data.serverName, toolName: node.data.toolName, args: parsedArgs, signal })
         return { text }
+      }
+      case 'claude-code': {
+        const tarefa = node.data.tarefa.trim() ? node.data.tarefa.replace(/\{\{entrada\}\}/g, input.trim()) : input
+        return { text: await actions.claudeCode({ tarefa, pasta: node.data.pasta, modelo: node.data.modelo, signal }) }
       }
     }
   }

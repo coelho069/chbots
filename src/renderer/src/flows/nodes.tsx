@@ -105,6 +105,14 @@ function IconDelegate() {
   )
 }
 
+function IconCode() {
+  return (
+    <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M5 4 L1.5 8 L5 12 M11 4 L14.5 8 L11 12" />
+    </svg>
+  )
+}
+
 const NodeIcons: Record<FlowNodeType, () => React.ReactElement> = {
   trigger: IconTrigger,
   news: IconNews,
@@ -113,7 +121,9 @@ const NodeIcons: Record<FlowNodeType, () => React.ReactElement> = {
   condition: IconCondition,
   output: IconOutput,
   memory: IconMemory,
-  delegate: IconDelegate
+  delegate: IconDelegate,
+  'mcp-tool': IconCode,
+  'claude-code': IconCode
 }
 
 function Shell({ id, type, selected, children }: { id: string; type: FlowNodeType; selected: boolean; children: ReactNode }) {
@@ -288,6 +298,21 @@ function DelegateNode({ id, data, selected }: NodeProps<RFNode>) {
   )
 }
 
+function ClaudeCodeNode({ id, data, selected }: NodeProps<RFNode>) {
+  const cfg = data.cfg as import('@shared/flows').ClaudeCodeNodeData
+  return (
+    <Shell id={id} type="claude-code" selected={selected}>
+      <Handle type="target" position={Position.Left} className="fhandle" />
+      <div className="fnode-line strong">
+        {cfg.pasta.trim() ? preview(cfg.pasta, 40) : <span className="warn-text">informe a pasta</span>}
+      </div>
+      <div className="fnode-line muted">{cfg.tarefa.trim() ? preview(cfg.tarefa, 50) : 'tarefa = entrada'}</div>
+      <div className="fnode-line tiny">{cfg.modelo} · limite {cfg.timeoutSec}s</div>
+      <Handle type="source" position={Position.Right} className="fhandle" />
+    </Shell>
+  )
+}
+
 // Fora de componentes: o React Flow exige referência estável.
 export const nodeTypes = {
   trigger: TriggerNode,
@@ -297,5 +322,6 @@ export const nodeTypes = {
   condition: ConditionNode,
   output: OutputNode,
   memory: MemoryNode,
-  delegate: DelegateNode
+  delegate: DelegateNode,
+  'claude-code': ClaudeCodeNode
 }

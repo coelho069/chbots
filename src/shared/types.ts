@@ -170,9 +170,13 @@ export interface Settings {
   notifyOnRun: boolean
   retentionDays: number
   apiToken: string
+  // modelo do Ollama usado pelo Claude Code local (ferramenta claude_code)
+  claudeCodeModel: string
+  // tempo limite do Claude Code local, em minutos
+  claudeCodeTimeoutMin: number
 }
 
-export const defaultSettings: Settings = { minimizeToTray: true, notifyOnRun: true, retentionDays: 30, apiToken: '' }
+export const defaultSettings: Settings = { minimizeToTray: true, notifyOnRun: true, retentionDays: 30, apiToken: '', claudeCodeModel: 'qwen2.5:0.5b', claudeCodeTimeoutMin: 15 }
 
 // ---- Cache / Desempenho ----
 
@@ -405,6 +409,7 @@ export interface PilotosApi {
     dataDir(): Promise<string>
     openDataDir(): Promise<void>
     backup(): Promise<string | null>
+    testOllama(): Promise<string>
   }
   perf: {
     stats(): Promise<CacheStats>

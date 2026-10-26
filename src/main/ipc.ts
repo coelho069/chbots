@@ -64,6 +64,7 @@ import {
 } from './db/repos/memoria'
 import { deleteRoutine, insertRoutine, listRoutines, listRuns, updateRoutine } from './db/repos/routines'
 import { getSettings, saveSettings } from './db/repos/settings'
+import { checkOllama } from './claudeCode'
 import type { FlowRunner } from './flows/runner'
 import { providerKeyRef, type SecretStore } from './secrets'
 import type { ChatService } from './services/chat'
@@ -255,6 +256,7 @@ export function registerIpc(ctx: IpcContext): void {
   // ---- Configurações ----
   // ---- Configurações ----
   handle(channels.settingsGet, () => getSettings(db))
+  handle(channels.settingsTestOllama, () => checkOllama())
 
   // ---- Fluxos ----
   const parseFlow = (input: unknown): FlowSaveInput => {

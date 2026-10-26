@@ -552,5 +552,34 @@ CREATE TABLE verificacao_url_cache (
 ALTER TABLE agents ADD COLUMN verificar_fontes INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE agents ADD COLUMN verificador_provider_id INTEGER REFERENCES providers(id);
 ALTER TABLE agents ADD COLUMN verificador_model TEXT;
-`
+`,
+  // 21: Nó "Claude Code" nos fluxos. Mesma recriação de flow_nodes da versão 13.
+  `
+  CREATE TABLE flow_nodes_new (
+    id         TEXT PRIMARY KEY,
+    flow_id    INTEGER NOT NULL REFERENCES flows(id) ON DELETE CASCADE,
+    type       TEXT NOT NULL CHECK (type IN ('trigger','news','promptgen','agent','condition','output','memory','delegate','mcp-tool','claude-code')),
+    data_json  TEXT NOT NULL,
+    position_x REAL NOT NULL,
+    position_y REAL NOT NULL
+  );
+  INSERT INTO flow_nodes_new SELECT id, flow_id, type, data_json, position_x, position_y FROM flow_nodes ORDER BY rowid;
+
+  CREATE TABLE flow_edges_bak AS SELECT * FROM flow_edges ORDER BY rowid;
+  DROP TABLE flow_edges;
+  DROP TABLE flow_nodes;
+  ALTER TABLE flow_nodes_new RENAME TO flow_nodes;
+  CREATE INDEX idx_flow_nodes_flow ON flow_nodes(flow_id);
+
+  CREATE TABLE flow_edges (
+    id              TEXT PRIMARY KEY,
+    flow_id         INTEGER NOT NULL REFERENCES flows(id) ON DELETE CASCADE,
+    source_node     TEXT NOT NULL REFERENCES flow_nodes(id) ON DELETE CASCADE,
+    target_node     TEXT NOT NULL REFERENCES flow_nodes(id) ON DELETE CASCADE,
+    condition_value TEXT CHECK (condition_value IN ('true','false'))
+  );
+  INSERT INTO flow_edges SELECT id, flow_id, source_node, target_node, condition_value FROM flow_edges_bak;
+  DROP TABLE flow_edges_bak;
+  CREATE INDEX idx_flow_edges_flow ON flow_edges(flow_id);
+  `
 ]

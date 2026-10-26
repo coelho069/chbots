@@ -31,6 +31,7 @@ export const channels = {
   settingsDataDir: 'settings:data-dir',
   settingsOpenDataDir: 'settings:open-data-dir',
   settingsBackup: 'settings:backup',
+  settingsTestOllama: 'settings:test-ollama',
   promptsCorrect: 'prompts:correct',
   promptsGenerate: 'prompts:generate',
   promptsList: 'prompts:list',

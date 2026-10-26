@@ -54,7 +54,8 @@ const api: PilotosApi = {
     update: (input) => invoke(c.settingsUpdate, input),
     dataDir: () => invoke(c.settingsDataDir),
     openDataDir: () => invoke(c.settingsOpenDataDir),
-    backup: () => invoke(c.settingsBackup)
+    backup: () => invoke(c.settingsBackup),
+    testOllama: () => invoke(c.settingsTestOllama)
   },
   app: {
     askUnsaved: (detail, canSave) => invoke(c.appAskUnsaved, detail, canSave),

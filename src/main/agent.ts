@@ -10,15 +10,16 @@
 //  então gera a resposta final com contexto das execuções realizadas.
 // ============================================================
 
-import { ChatService, type BuiltinToolSet } from '../services/chat';
-import { ToolExecutor, type ToolCallRequest, type ToolCallResult } from './executor';
-import TOOL_REGISTRY from './registry';
-import { getAgent } from '../db/repos/agents';
-import { getProvider } from '../db/repos/providers';
-import { listMessages } from '../db/repos/conversations';
-import type { ChatTurn } from '../llm/provider';
-import type { Db } from '../db/connection';
+import { ChatService, type BuiltinToolSet } from './services/chat';
+import { ToolExecutor, type ToolCallRequest, type ToolCallResult } from './tools/executor';
+import TOOL_REGISTRY from './tools/registry';
+import { getAgent } from './db/repos/agents';
+import { getProvider } from './db/repos/providers';
+import { listMessages } from './db/repos/conversations';
+import type { ChatTurn } from './llm/provider';
+import type { Db } from './db/connection';
 import type { Message } from '@shared/types';
+import { runClaudeCode } from './claudeCode';
 
 // ============================================================
 //  LlmToolDef — Definição de ferramenta para LLM (OpenAI-style)
@@ -296,6 +297,38 @@ export class NativeToolSet implements BuiltinToolSet {
     // Se houve erro, result.content conterá mensagem de erro
     return result.content;
   }
+}
+
+// ============================================================
+//  claude_code — roda o Claude Code CLI local (Ollama) numa pasta
+//
+//  Registrada nas ferramentas embutidas do chat (index.ts). Sempre pede
+//  aprovação do usuário antes de executar, pois o CLI pode editar arquivos.
+// ============================================================
+
+export const CLAUDE_CODE_TOOL_DEF = {
+  name: 'claude_code',
+  description: 'Executa uma tarefa de programação com o Claude Code local (modelo do Ollama) numa pasta do computador. Pode ler e editar arquivos dessa pasta. Exige aprovação do usuário.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      tarefa: { type: 'string', description: 'O que o Claude Code deve fazer' },
+      pasta: { type: 'string', description: 'Caminho absoluto da pasta de trabalho' }
+    },
+    required: ['tarefa', 'pasta']
+  }
+}
+
+export async function handleClaudeCodeTool(
+  input: Record<string, unknown>,
+  modelo: string,
+  confirm: (tarefa: string, pasta: string) => Promise<boolean>
+): Promise<string> {
+  const tarefa = String(input.tarefa ?? '')
+  const pasta = String(input.pasta ?? '')
+  if (!(await confirm(tarefa, pasta))) return 'Execução negada pelo usuário.'
+  const r = await runClaudeCode({ tarefa, pasta, modelo })
+  return r.ok ? r.resposta : `Erro: ${r.erro}`
 }
 
 // ============================================================

@@ -9,6 +9,7 @@ import type { DelegationService } from '../services/delegation'
 import type { PromptGenerator } from '../services/promptGen'
 import type { McpService } from '../services/mcp'
 import { logMcpCall } from '../db/repos/mcp'
+import { runClaudeCode } from '../claudeCode'
 import type { EngineActions } from './engine'
 import { buildNewsUrl, fetchNews } from './news'
 import { getCachedNews, setCachedNews } from './newsCache'
@@ -129,6 +130,12 @@ export function createEngineActions(deps: {
       logMcpCall(deps.db, serverName, toolName, result.isError ? 'error' : 'ok', result.durationMs)
       if (result.isError) throw new Error(result.content)
       return result.content
+    },
+    async claudeCode({ tarefa, pasta, modelo, signal }) {
+      // Roda o Claude Code CLI local (Ollama); erro vira falha do nó
+      const r = await runClaudeCode({ tarefa, pasta, modelo }, signal)
+      if (!r.ok) throw new Error(`Claude Code: ${r.erro}`)
+      return r.resposta
     }
   })
 }
