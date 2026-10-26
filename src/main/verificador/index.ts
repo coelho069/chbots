@@ -111,7 +111,6 @@ export class VerificadorService {
     agent: Agent
   ): Promise<void> {
     const { db, secrets, createClient, onUpdated } = this.deps
-    console.info(`[Verificador] iniciando verificação para msg ${messageId}`)
 
     // Collect evidence
     const evidences: Evidence[] = []
@@ -122,7 +121,6 @@ export class VerificadorService {
         const urls = extractUrls(turn.content)
         const url = urls[0] ?? null
         evidences.push({ url, snippet: turn.content.slice(0, SNIPPET_LEN) })
-        console.info(`[Verificador] evidência de ferramenta: url=${url}, snippet_len=${turn.content.length}`)
       }
     }
 
@@ -133,11 +131,7 @@ export class VerificadorService {
       if (content) evidences.push({ url, snippet: content })
     }
 
-    console.info(`[Verificador] total de evidências: ${evidences.length}`)
-    if (evidences.length === 0) {
-      console.warn(`[Verificador] nenhuma evidência encontrada, retornando`)
-      return // no sources, nothing to verify
-    }
+    if (evidences.length === 0) return // no sources, nothing to verify
 
     const claims = splitClaims(text)
     if (claims.length === 0) return

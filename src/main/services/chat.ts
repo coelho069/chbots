@@ -324,7 +324,6 @@ export class ChatService {
         tokensIn: result.tokensIn,
         tokensOut: result.tokensOut
       })
-      console.info(`[Verificador] chamando para msg ${saved.id}, verificarFontes=${agent.verificarFontes}, provider=${agent.verificadorProviderId}, model=${agent.verificadorModel}`)
       this.deps.verificador?.verificarAsync(saved.id, finalText, history, agent)
       console.info(`[MCP] resposta final pronta para conversa ${conversationId} em ${Date.now() - requestStartedAt}ms`)
       const source = `conversa com agente ${agent.name} em ${new Date().toLocaleDateString('pt-BR')}`
