@@ -13,6 +13,9 @@
 import { ChatService, type BuiltinToolSet } from '../services/chat';
 import { ToolExecutor, type ToolCallRequest, type ToolCallResult } from './executor';
 import TOOL_REGISTRY from './registry';
+import { getAgent } from '../db/repos/agents';
+import { getProvider } from '../db/repos/providers';
+import type { ChatTurn } from '../llm/provider';
 
 // ============================================================
 //  LlmToolDef — Definição de ferramenta para LLM (OpenAI-style)
@@ -121,99 +124,101 @@ export async function runToolLoop(
   onChunk: (chunk: { conversationId: number; delta: string; done: boolean }) => void,
   options: { maxRounds?: number; timeoutMs?: number } = {}
 ): Promise<string> {
-  // Configurações com fallback padrão
-  // maxRounds limita rodadas agentic para evitar loops infinitos
-  // timeoutMs protege contra chamadas LLM travadas
   const maxRounds = options.maxRounds ?? 5;
   const timeoutMs = options.timeoutMs ?? 60_000;
 
-  // Histórico de mensagens conversa (inclui user, assistant e tool results)
-  // Mantém contexto para o LLM entender a sequência de interações
-  let history = [];
-  // Acumula o texto da resposta do assistente da rodada atual
+  // Carrega a config do agente (modelo, prompt do sistema, ferramentas permitidas, verificar fontes)
+  const agent = getAgent(chat.deps.db, agentId);
+  if (!agent) throw new Error(`Agente ${agentId} não encontrado`);
+
+  // Carrega o provedor para criar o cliente com credenciais corretas
+  const provider = getProvider(chat.deps.db, agent.providerId);
+  if (!provider) throw new Error(`Provedor do agente não encontrado`);
+
+  // Obtém a chave API secreta do agente
+  const apiKey = provider.keyRef ? chat.deps.secrets.get(provider.keyRef) : null;
+
+  // Cria o cliente LLM com as credenciais corretas do provedor
+  const client = chat.deps.createClient({
+    kind: provider.kind,
+    baseUrl: provider.baseUrl,
+    apiKey
+  });
+
+  // Monta o histórico com sistema + user message (não será regenerado em cada loop)
+  const history: ChatTurn[] = [
+    { role: 'user', content: userText }
+  ];
+
+  // Cache das definições de ferramentas (não muda em runtime)
+  const toolDefs = buildToolDefs();
+
   let assistantText = '';
-  // Contador da rodada agentic (1-based para melhor logging)
   let toolRound = 0;
 
-  // Loop principal: continua enquanto houver rodadas disponíveis
   while (toolRound < maxRounds) {
     toolRound++;
 
-    // Envia o texto gerado até aqui para o cliente (streaming partial)
-    // O cliente pode exibir a resposta conforme chega
-    onChunk({ conversationId, delta: assistantText, done: false });
+    // Chama o LLM com a história acumulada
+    const result = await client.chat({
+      model: agent.model,
+      system: agent.systemPrompt,
+      messages: history,
+      tools: toolDefs.length > 0 ? toolDefs : undefined,
+      temperature: agent.temperature,
+      streaming: true
+    }, (delta) => {
+      // Streaming callback: envia chunks para o cliente conforme chegam
+      if (delta) {
+        onChunk({ conversationId, delta, done: false });
+      }
+    });
 
-    // Faz requisição ao LLM com as ferramentas disponíveis
-    // O LLM pode decidir chamar nenhuma, uma ou várias ferramentas
-    const result = await chat.deps
-      .createClient({ kind: undefined, baseUrl: '', apiKey: '' })
-      .chat.completions.create({
-        // Modelo com suporte a function calling
-        model: 'ch-bots-tool-model',
-        // Histórico de mensagens da conversa (vazio na primeira rodada)
-        messages: history,
-        // Lista de ferramentas disponíveis para o LLM chamar
-        tools: buildToolDefs(),
-        // 'auto' deixa o LLM decidir se quer chamar ferramenta ou não
-        tool_choice: 'auto',
-        // stream: false para poder processar tool_calls antes de responder
-        stream: false,
-        // Timeout para não travar em chamadas muito lentas
-        timeout: timeoutMs
-      });
+    // Extrai a resposta completa do modelo
+    assistantText = result.text ?? '';
 
-    // Extrai o primeiro (e único) choice da resposta
-    const choice = result.choices?.[0];
-    if (!choice) throw new Error('resposta_vazia_do_llm');
-
-    // Message contém content (texto) e tool_calls (se houver)
-    const message = choice.message;
-    // Atualiza o texto da resposta assistente
-    // Se vazio, mantém o texto anterior (pode estar continuando)
-    assistantText = message.content ?? '';
-
-    // Verifica se o LLM quer chamar ferramentas
-    // Se não há tool_calls, chegamos à resposta final
-    if (!message.tool_calls || message.tool_calls.length === 0) {
-      // Sai do loop: o LLM completou a resposta
+    // Se não há tool calls, chegamos à resposta final
+    if (!result.toolUse || result.toolUse.length === 0) {
       break;
     }
 
+    // Adiciona a resposta do assistente ao histórico (com as ferramentas que quer chamar)
+    history.push({
+      role: 'assistant',
+      content: assistantText,
+      toolUse: result.toolUse
+    });
+
     // Processa cada ferramenta que o LLM quer chamar
-    // Pode haver múltiplas chamadas paralelas em uma rodada
-    for (const tc of message.tool_calls) {
-      // Prepara a requisição para o executor
+    for (const toolCall of result.toolUse) {
       const toolRequest: ToolCallRequest = {
-        // ID único da chamada (fornecido pelo LLM)
-        toolCallId: tc.id,
-        // Nome da ferramenta a executar
-        name: tc.function.name,
-        // Parâmetros em JSON parsed (LLM envia como string)
-        arguments: JSON.parse(tc.function.arguments || '{}')
+        toolCallId: toolCall.id,
+        name: toolCall.name,
+        arguments: toolCall.input
       };
 
-      // Executa a ferramenta e obtém o resultado
-      // O executor cuida de validação, erro handling, etc
+      // Executa a ferramenta
       const toolResult = await executor.execute(toolRequest);
 
-      // Adiciona a mensagem de resultado ao histórico
-      // O LLM usará isto para contexto na próxima rodada
-      // A estrutura segue o padrão OpenAI para tool results
+      // Adiciona o resultado ao histórico para o LLM
       history.push({
         role: 'tool',
         content: toolResult.content,
-        toolCallId: tc.id
+        toolCallId: toolCall.id
       });
 
-      // Log de diagnóstico: registra execução de cada ferramenta
-      // Ajuda a debugar e monitorar execuções agentic
       console.info(`[tool] ${toolRequest.name} -> ${toolResult.isError ? 'ERRO' : 'OK'}`);
     }
   }
 
-  // Retorna a resposta final
-  // Já contém contexto das ferramentas executadas pois foi gerada pelo LLM
-  // com conhecimento dos resultados das chamadas anteriores
+  // Chama o verificador de fontes se está configurado
+  if (agent.verificarFontes && chat.deps.verificador) {
+    // Este será chamado de forma assíncrona para não bloquear a resposta
+    chat.deps.verificador.verificarAsync(-1, assistantText, history, agent).catch((err) => {
+      console.warn('[verificador] erro ao verificar fontes:', err);
+    });
+  }
+
   return assistantText;
 }
 
