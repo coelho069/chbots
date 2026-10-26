@@ -314,11 +314,11 @@ function ClaudeCodeForm({ cfg, onChange }: { cfg: ClaudeCodeNodeData; onChange: 
       </label>
       <label>
         Tempo limite (segundos)
-        <input type="number" min={5} max={600} value={cfg.timeoutSec} onChange={(e) => onChange({ timeoutSec: clampTimeout(Number(e.target.value)) })} />
+        <input type="number" min={5} max={7200} value={cfg.timeoutSec} onChange={(e) => onChange({ timeoutSec: Math.min(7200, Math.max(5, Math.round(Number(e.target.value)) || 5)) })} />
       </label>
       <p className="muted small">
         Roda o Claude Code local apontado para o Ollama (localhost:11434). Pode ler e editar arquivos da pasta; pede
-        aprovação antes de executar. O Claude Code para sozinho após 5 min.
+        aprovação antes de executar. Vale o menor entre este limite e o de Configurações → Claude Code local.
       </p>
     </>
   )

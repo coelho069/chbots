@@ -21,7 +21,7 @@ modelo local do **Ollama**, sem chave da Anthropic e sem enviar código para a n
    - `ANTHROPIC_BASE_URL=http://localhost:11434`
    - `ANTHROPIC_AUTH_TOKEN=ollama` (valor fixo, não é segredo)
    - `ANTHROPIC_API_KEY=` (vazio, para não usar uma chave real por engano)
-5. Tempo limite de **5 minutos**; depois disso o processo é encerrado.
+5. Tempo limite configurável em *Configurações → Claude Code local* (padrão **15 minutos**); depois disso o processo é encerrado.
 6. Retorna `{ ok, resposta, erro }`, lendo o campo `result` do JSON do CLI.
 
 ## Onde usar
@@ -42,7 +42,7 @@ Na paleta, grupo *Ferramentas*. Campos:
 | Tarefa | vazio | vazio = usa a entrada do nó; aceita `{{entrada}}` |
 | Pasta | — | obrigatória |
 | Modelo | `qwen2.5:0.5b` | nome do modelo no Ollama |
-| Tempo limite | 300 s | o próprio Claude Code para em 5 min |
+| Tempo limite | 900 s | até 7200 s; vale o menor entre este e o de Configurações |
 
 O nó pede aprovação antes de rodar (como Saída, Delegar e Ferramenta MCP). Erro do
 Claude Code vira falha do nó.
@@ -50,13 +50,13 @@ Claude Code vira falha do nó.
 ### Configurações
 
 *Configurações → Claude Code local*: campo **Modelo do Claude Code local** (padrão
-`qwen2.5:0.5b`) e botão **Testar Ollama**, que mostra a versão do Ollama ou o erro.
+`qwen2.5:0.5b`), **Tempo limite (minutos)** (padrão 15, de 1 a 120) e botão **Testar Ollama**, que mostra a versão do Ollama ou o erro.
 
 ## Desempenho
 
 O Claude Code envia um prompt de sistema grande (~20 mil tokens) a cada chamada. Em CPU,
 um modelo pequeno processa algo como 70 tokens/s, ou seja, **minutos por chamada** — uma
-tarefa que lê um arquivo e responde pode passar dos 5 minutos. Para uso real, prefira GPU
+tarefa que lê um arquivo e responde pode levar mais de 10 minutos. Para uso real, prefira GPU
 e/ou um modelo com bom suporte a ferramentas e contexto de 32k ou mais.
 
 ## Segurança

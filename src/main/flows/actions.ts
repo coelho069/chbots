@@ -10,6 +10,7 @@ import type { PromptGenerator } from '../services/promptGen'
 import type { McpService } from '../services/mcp'
 import { logMcpCall } from '../db/repos/mcp'
 import { runClaudeCode } from '../claudeCode'
+import { getSettings } from '../db/repos/settings'
 import type { EngineActions } from './engine'
 import { buildNewsUrl, fetchNews } from './news'
 import { getCachedNews, setCachedNews } from './newsCache'
@@ -133,7 +134,8 @@ export function createEngineActions(deps: {
     },
     async claudeCode({ tarefa, pasta, modelo, signal }) {
       // Roda o Claude Code CLI local (Ollama); erro vira falha do nó
-      const r = await runClaudeCode({ tarefa, pasta, modelo }, signal)
+      // o tempo limite do nó (engine) também corta antes, se for menor
+      const r = await runClaudeCode({ tarefa, pasta, modelo, timeoutMin: getSettings(deps.db).claudeCodeTimeoutMin }, signal)
       if (!r.ok) throw new Error(`Claude Code: ${r.erro}`)
       return r.resposta
     }

@@ -293,7 +293,8 @@ if (!app.requestSingleInstanceLock()) {
           })
         }
         if (name === 'claude_code') {
-          return handleClaudeCodeTool(input, getSettings(db).claudeCodeModel, async (tarefa, pasta) => {
+          const { claudeCodeModel, claudeCodeTimeoutMin } = getSettings(db)
+          return handleClaudeCodeTool(input, { modelo: claudeCodeModel, timeoutMin: claudeCodeTimeoutMin }, async (tarefa, pasta) => {
             const options = {
               type: 'warning' as const,
               buttons: ['Executar', 'Cancelar'],

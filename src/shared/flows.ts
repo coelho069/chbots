@@ -201,7 +201,7 @@ export function defaultNodeData<T extends FlowNodeType>(type: T): FlowNodeDataMa
     memory: { mode: 'save', categories: [], limit: 10, source: '', timeoutSec: 30 },
     delegate: { agentId: null, timeoutSec: 120 },
     'mcp-tool': { serverName: '', toolName: '', args: '{}', timeoutSec: 60 },
-    'claude-code': { tarefa: '', pasta: '', modelo: 'qwen2.5:0.5b', timeoutSec: 300 }
+    'claude-code': { tarefa: '', pasta: '', modelo: 'qwen2.5:0.5b', timeoutSec: 900 }
   }
   return defaults[type]
 }

@@ -287,6 +287,20 @@ export function SettingsPage({ providers, onProvidersChanged }: Props) {
             />
             <span className="muted small">Modelo do Ollama usado pela ferramenta claude_code dos agentes.</span>
           </label>
+          <label>
+            Tempo limite (minutos)
+            <input
+              type="number"
+              min={1}
+              max={120}
+              value={settings.claudeCodeTimeoutMin}
+              onChange={(e) => {
+                const v = parseInt(e.target.value)
+                if (v >= 1 && v <= 120) void updateSettings({ claudeCodeTimeoutMin: v })
+              }}
+              style={{ width: '80px', marginLeft: '8px' }}
+            />
+          </label>
           <div className="actions">
             <button onClick={async () => {
               try {
