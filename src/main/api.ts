@@ -202,6 +202,35 @@ export function startApiServer(deps: ApiDeps): void {
         return json(res, flowRunner.start(Number(flowRunMatch[1]), 'manual').run)
       }
 
+      const verificMatch = path.match(/^\/api\/verificacoes\/(\d+)$/)
+      if (method === 'GET' && verificMatch) {
+        const rows = db.prepare(
+          `SELECT id, message_id, claim_text, source_url, source_snippet, veredito, created_at
+           FROM verificacoes WHERE message_id = ? ORDER BY id`
+        ).all(Number(verificMatch[1])) as {
+          id: number; message_id: number; claim_text: string
+          source_url: string | null; source_snippet: string | null
+          veredito: string; created_at: string
+        }[]
+        if (rows.length === 0) return json(res, null)
+        const items = rows.map((r) => ({
+          id: r.id, messageId: r.message_id, claimText: r.claim_text,
+          sourceUrl: r.source_url, sourceSnippet: r.source_snippet,
+          veredito: r.veredito, createdAt: r.created_at
+        }))
+        const judged = items.filter((i) => i.veredito !== 'FONTE_INACESSIVEL')
+        const correto = items.filter((i) => i.veredito === 'CORRETO').length
+        return json(res, {
+          messageId: Number(verificMatch[1]),
+          total: items.length,
+          correto, errado: items.filter((i) => i.veredito === 'ERRADO').length,
+          semSuporte: items.filter((i) => i.veredito === 'SEM_SUPORTE').length,
+          inacessivel: items.filter((i) => i.veredito === 'FONTE_INACESSIVEL').length,
+          score: judged.length > 0 ? Math.round((correto / judged.length) * 100) : null,
+          items
+        })
+      }
+
       // Not found
       error(res, 'Not found', 404)
     } catch (err) {

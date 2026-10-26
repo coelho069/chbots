@@ -160,6 +160,10 @@ const api: PilotosApi = {
   drafts: {
     respond: (draftId: number, approve: boolean) => invoke(c.draftRespond, draftId, approve),
     onPending: (listener: (draft: SendDraft) => void) => subscribe<SendDraft>(events.draftPending, listener)
+  },
+  verificacoes: {
+    list: (messageId: number) => invoke(c.verificacoesList, messageId),
+    onUpdated: (listener: (messageId: number) => void) => subscribe<number>(events.verificacoesUpdated, listener)
   }
 }
 

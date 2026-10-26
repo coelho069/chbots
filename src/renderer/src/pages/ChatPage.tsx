@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useRef, useState, type RefObject } from 'react'
-import type { Agent, Attachment, Conversation, DelegationCard, McpApprovalRequest, McpToolCallEvent, Message, SendDraft } from '@shared/types'
+import type { Agent, Attachment, Conversation, DelegationCard, McpApprovalRequest, McpToolCallEvent, Message, SendDraft, VerificacaoSummary } from '@shared/types'
 import { api, formatDateTime } from '../api'
 import type { ChatTarget } from '../App'
 import { CloseButton, useCloseHandler } from '../CloseContext'
@@ -33,6 +33,8 @@ export function ChatPage({ agents, target, onOpenChat }: Props) {
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [sendDrafts, setSendDrafts] = useState<SendDraft[]>([])
   const [sendError, setSendError] = useState<{ conversationId: number; content: string; message: string } | null>(null)
+  const [verifSummaries, setVerifSummaries] = useState<Record<number, VerificacaoSummary>>({})
+  const [verifOpen, setVerifOpen] = useState<number | null>(null)
   const [approvalError, setApprovalError] = useState<string | null>(null)
   const [respondingApprovals, setRespondingApprovals] = useState<string[]>([])
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -139,6 +141,13 @@ export function ChatPage({ agents, target, onOpenChat }: Props) {
       return [...prev, card]
     })
   }), [conversationId])
+
+  // Verificador de fontes: atualiza ao receber evento
+  useEffect(() => api.verificacoes.onUpdated((messageId) => {
+    api.verificacoes.list(messageId).then((summary) => {
+      if (summary) setVerifSummaries((prev) => ({ ...prev, [messageId]: summary }))
+    }).catch(() => undefined)
+  }), [])
 
   // Rascunhos de envio externo pendentes
   useEffect(() => api.drafts.onPending((draft) => {
@@ -432,6 +441,9 @@ export function ChatPage({ agents, target, onOpenChat }: Props) {
               handoffFor={handoffFor}
               agentId={agentId}
               agents={agents}
+              verifSummary={verifSummaries[m.id]}
+              verifOpen={verifOpen === m.id}
+              onToggleVerif={(id) => setVerifOpen(verifOpen === id ? null : id)}
               onToggleHandoff={(id) => setHandoffFor(handoffFor === id ? null : id)}
               onHandoffDone={(toAgentId, newConversationId) => { setHandoffFor(null); onOpenChat(toAgentId, newConversationId) }}
               onHandoffCancel={() => setHandoffFor(null)}
@@ -569,14 +581,26 @@ interface BubbleProps {
   handoffFor: number | null
   agentId: number | null
   agents: Agent[]
+  verifSummary?: VerificacaoSummary
+  verifOpen: boolean
+  onToggleVerif: (id: number) => void
   onToggleHandoff: (id: number) => void
   onHandoffDone: (toAgentId: number, conversationId: number) => void
   onHandoffCancel: () => void
 }
 
+const VERIF_COLORS: Record<string, string> = { CORRETO: '#22c55e', ERRADO: '#ef4444', SEM_SUPORTE: '#f59e0b', FONTE_INACESSIVEL: '#9ca3af' }
+
 const MessageBubble = memo(function MessageBubble({
-  message: m, agentName, handoffFor, agentId, agents, onToggleHandoff, onHandoffDone, onHandoffCancel
+  message: m, agentName, handoffFor, agentId, agents, verifSummary, verifOpen, onToggleVerif, onToggleHandoff, onHandoffDone, onHandoffCancel
 }: BubbleProps) {
+  const badgeColor = verifSummary
+    ? verifSummary.score === null ? '#9ca3af'
+      : verifSummary.score >= 80 ? '#22c55e'
+      : verifSummary.score >= 40 ? '#f59e0b'
+      : '#ef4444'
+    : null
+
   return (
     <div className={`bubble ${m.role}`}>
       {m.fromAgentId !== null && <div className="bubble-meta">repassado de {agentName(m.fromAgentId)}</div>}
@@ -584,7 +608,28 @@ const MessageBubble = memo(function MessageBubble({
       {m.role === 'assistant' && m.id > 0 && (
         <div className="bubble-actions">
           {m.tokensOut !== null && <span className="muted">{m.tokensOut} tokens</span>}
+          {badgeColor && (
+            <button
+              className="link"
+              title={`Fontes: ${verifSummary!.score ?? '?'}% correto`}
+              onClick={() => onToggleVerif(m.id)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+            >
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: badgeColor, display: 'inline-block' }} />
+              Fontes {verifSummary!.score !== null ? `${verifSummary!.score}%` : '?'}
+            </button>
+          )}
           <button className="link" onClick={() => onToggleHandoff(m.id)}>Enviar para…</button>
+        </div>
+      )}
+      {m.role === 'assistant' && verifOpen && verifSummary && (
+        <div className="verif-panel">
+          {verifSummary.items.map((item) => (
+            <div key={item.id} className="verif-item">
+              <span style={{ color: VERIF_COLORS[item.veredito] ?? '#9ca3af', fontWeight: 600, fontSize: 11 }}>{item.veredito}</span>
+              <span className="muted" style={{ marginLeft: 6, fontSize: 12 }}>{item.claimText.slice(0, 120)}</span>
+            </div>
+          ))}
         </div>
       )}
       {handoffFor === m.id && agentId !== null && (

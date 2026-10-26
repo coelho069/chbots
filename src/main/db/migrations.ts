@@ -506,6 +506,29 @@ CREATE TABLE send_drafts (
   created_at   TEXT NOT NULL
 );
 `,
+  // 19: Checkpoints LangGraph para retomada de execuções de fluxos.
+  `
+CREATE TABLE IF NOT EXISTS flow_checkpoints (
+  thread_id     TEXT NOT NULL,
+  checkpoint_ns TEXT NOT NULL DEFAULT '',
+  checkpoint_id TEXT NOT NULL,
+  checkpoint    TEXT NOT NULL,
+  metadata      TEXT NOT NULL,
+  created_at    TEXT NOT NULL,
+  PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id)
+);
+CREATE TABLE IF NOT EXISTS flow_checkpoint_writes (
+  thread_id     TEXT NOT NULL,
+  checkpoint_ns TEXT NOT NULL DEFAULT '',
+  checkpoint_id TEXT NOT NULL,
+  task_id       TEXT NOT NULL,
+  idx           INTEGER NOT NULL,
+  channel       TEXT NOT NULL,
+  type          TEXT,
+  blob          TEXT,
+  PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id, task_id, idx)
+);
+`,
   // 20: Verificador de fontes.
   `
 CREATE TABLE verificacoes (
@@ -529,28 +552,5 @@ CREATE TABLE verificacao_url_cache (
 ALTER TABLE agents ADD COLUMN verificar_fontes INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE agents ADD COLUMN verificador_provider_id INTEGER REFERENCES providers(id);
 ALTER TABLE agents ADD COLUMN verificador_model TEXT;
-`,
-  // 21: Checkpoints LangGraph para retomada de execuções de fluxos.
-  `
-CREATE TABLE IF NOT EXISTS flow_checkpoints (
-  thread_id     TEXT NOT NULL,
-  checkpoint_ns TEXT NOT NULL DEFAULT '',
-  checkpoint_id TEXT NOT NULL,
-  checkpoint    TEXT NOT NULL,
-  metadata      TEXT NOT NULL,
-  created_at    TEXT NOT NULL,
-  PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id)
-);
-CREATE TABLE IF NOT EXISTS flow_checkpoint_writes (
-  thread_id     TEXT NOT NULL,
-  checkpoint_ns TEXT NOT NULL DEFAULT '',
-  checkpoint_id TEXT NOT NULL,
-  task_id       TEXT NOT NULL,
-  idx           INTEGER NOT NULL,
-  channel       TEXT NOT NULL,
-  type          TEXT,
-  blob          TEXT,
-  PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id, task_id, idx)
-);
 `
 ]

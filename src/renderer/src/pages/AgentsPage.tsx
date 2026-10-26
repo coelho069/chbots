@@ -7,7 +7,7 @@ import { useToast } from '../toast'
 import { getMcpDescricaoPtBR } from '@shared/mcpDescricoesPtBR'
 import { McpTranslatedDescription } from '../components/McpTranslatedDescription'
 
-const agentFields: (keyof AgentInput)[] = ['name', 'color', 'systemPrompt', 'providerId', 'model', 'temperature', 'usarCache', 'mcpTools']
+const agentFields: (keyof AgentInput)[] = ['name', 'color', 'systemPrompt', 'providerId', 'model', 'temperature', 'usarCache', 'mcpTools', 'verificarFontes', 'verificadorProviderId', 'verificadorModel']
 
 const palette = ['#4f7cff', '#16a37f', '#e0703a', '#c2459b', '#8a63d2', '#d4a62a', '#3a9fc4', '#d04f4f']
 
@@ -30,7 +30,10 @@ const emptyForm = (providers: Provider[], index: number): AgentInput => ({
   model: '',
   temperature: 0.7,
   usarCache: false,
-  mcpTools: []
+  mcpTools: [],
+  verificarFontes: false,
+  verificadorProviderId: null,
+  verificadorModel: null
 })
 
 export function AgentsPage({ agents, providers, draft, onDraftUsed, onChanged, onOpenChat, onGoSettings }: Props) {
@@ -60,7 +63,7 @@ export function AgentsPage({ agents, providers, draft, onDraftUsed, onChanged, o
     }
     draftRef.current = null
     const a = agents.find((x) => x.id === selectedId)
-    if (a) setForm({ ...a, mcpTools: a.mcpTools ?? [] })
+    if (a) setForm({ ...a, mcpTools: a.mcpTools ?? [], verificarFontes: a.verificarFontes ?? false, verificadorProviderId: a.verificadorProviderId ?? null, verificadorModel: a.verificadorModel ?? null })
     // Carrega config de delegação ao trocar de agente
     if (typeof selectedId === 'number') {
       void api.delegation.getConfig(selectedId).then(setDelCfg).catch(() => setDelCfg(null))
@@ -304,6 +307,35 @@ export function AgentsPage({ agents, providers, draft, onDraftUsed, onChanged, o
             />
             Usar cache de respostas
           </label>
+
+          <details>
+            <summary style={{ cursor: 'pointer', marginBottom: '0.5rem' }}>Verificador de fontes</summary>
+            <div className="field" style={{ gap: '0.5rem', display: 'flex', flexDirection: 'column' }}>
+              <label className="check">
+                <input type="checkbox" checked={form.verificarFontes} onChange={(e) => set('verificarFontes', e.target.checked)} />
+                Verificar afirmações após cada resposta
+              </label>
+              {form.verificarFontes && (
+                <>
+                  <label>
+                    Provedor do verificador
+                    <select value={form.verificadorProviderId ?? ''} onChange={(e) => set('verificadorProviderId', Number(e.target.value) || null)}>
+                      <option value="">— mesmo do agente —</option>
+                      {providers.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                  </label>
+                  <label>
+                    Modelo do verificador
+                    <input
+                      value={form.verificadorModel ?? ''}
+                      placeholder="ex: gpt-4o-mini"
+                      onChange={(e) => set('verificadorModel', e.target.value || null)}
+                    />
+                  </label>
+                </>
+              )}
+            </div>
+          </details>
 
           {editing && delCfg && (
             <details>

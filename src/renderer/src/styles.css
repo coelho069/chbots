@@ -588,6 +588,16 @@ label.check {
   font-size: 12px;
   margin-top: 6px;
 }
+.verif-panel {
+  margin-top: 6px;
+  padding: 6px 8px;
+  border-left: 2px solid var(--border);
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.verif-item { display: flex; align-items: baseline; flex-wrap: wrap; }
 .delegation-card {
   margin: 6px 0;
   border: 1px solid var(--border);
