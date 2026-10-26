@@ -159,52 +159,44 @@ export async function runToolLoop(
   while (toolRound < maxRounds) {
     toolRound++;
 
-    // Chama o LLM com a história acumulada
-    const result = await client.chat({
-      model: agent.model,
-      system: agent.systemPrompt,
-      messages: history,
-      tools: toolDefs.length > 0 ? toolDefs : undefined,
-      temperature: agent.temperature,
-      streaming: true
-    }, (delta) => {
-      // Streaming callback: envia chunks para o cliente conforme chegam
-      if (delta) {
-        onChunk({ conversationId, delta, done: false });
-      }
+    // Comprime histórico se > 8 mensagens (para rede lenta, reduz payload)
+    if (history.length > 8) {
+      history.splice(1, history.length - 8);
+    }
+
+    const result = await client.chat.completions.create({
+      tools: toolDefs,
+      messages: history
     });
 
-    // Extrai a resposta completa do modelo
-    assistantText = result.text ?? '';
+    const message = result.choices[0]?.message;
+    if (!message) break;
 
-    // Se não há tool calls, chegamos à resposta final
-    if (!result.toolUse || result.toolUse.length === 0) {
+    assistantText = message.content ?? '';
+
+    if (!message.tool_calls || message.tool_calls.length === 0) {
       break;
     }
 
-    // Adiciona a resposta do assistente ao histórico (com as ferramentas que quer chamar)
     history.push({
       role: 'assistant',
       content: assistantText,
-      toolUse: result.toolUse
+      tool_calls: message.tool_calls
     });
 
-    // Processa cada ferramenta que o LLM quer chamar
-    for (const toolCall of result.toolUse) {
+    for (const toolCall of message.tool_calls) {
       const toolRequest: ToolCallRequest = {
         toolCallId: toolCall.id,
-        name: toolCall.name,
-        arguments: toolCall.input
+        name: toolCall.function.name,
+        arguments: toolCall.function.arguments
       };
 
-      // Executa a ferramenta
       const toolResult = await executor.execute(toolRequest);
 
-      // Adiciona o resultado ao histórico para o LLM
       history.push({
         role: 'tool',
         content: toolResult.content,
-        toolCallId: toolCall.id
+        tool_call_id: toolCall.id
       });
 
       console.info(`[tool] ${toolRequest.name} -> ${toolResult.isError ? 'ERRO' : 'OK'}`);
