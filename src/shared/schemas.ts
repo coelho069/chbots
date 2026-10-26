@@ -238,6 +238,9 @@ export const agentInput = z.object({
   model: z.string().trim().min(1).max(200),
   temperature: z.number().min(0).max(2),
   usarCache: z.boolean().default(false),
-  mcpTools: z.array(mcpToolRefInput).max(100).default([])
+  mcpTools: z.array(mcpToolRefInput).max(100).default([]),
+  verificarFontes: z.boolean().default(false),
+  verificadorProviderId: idSchema.nullable().default(null),
+  verificadorModel: z.string().trim().max(200).nullable().default(null)
 })
 export type AgentInput = z.infer<typeof agentInput>

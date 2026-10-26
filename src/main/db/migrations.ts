@@ -506,7 +506,31 @@ CREATE TABLE send_drafts (
   created_at   TEXT NOT NULL
 );
 `,
-  // 19: Checkpoints LangGraph para retomada de execuções de fluxos.
+  // 20: Verificador de fontes.
+  `
+CREATE TABLE verificacoes (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  message_id      INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+  claim_text      TEXT NOT NULL,
+  source_url      TEXT,
+  source_snippet  TEXT,
+  veredito        TEXT NOT NULL CHECK(veredito IN ('CORRETO','ERRADO','SEM_SUPORTE','FONTE_INACESSIVEL')),
+  created_at      TEXT NOT NULL
+);
+CREATE INDEX idx_verificacoes_message ON verificacoes(message_id);
+
+CREATE TABLE verificacao_url_cache (
+  url_hash  TEXT NOT NULL PRIMARY KEY,
+  url       TEXT NOT NULL,
+  conteudo  TEXT NOT NULL,
+  cached_at TEXT NOT NULL
+);
+
+ALTER TABLE agents ADD COLUMN verificar_fontes INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE agents ADD COLUMN verificador_provider_id INTEGER REFERENCES providers(id);
+ALTER TABLE agents ADD COLUMN verificador_model TEXT;
+`,
+  // 21: Checkpoints LangGraph para retomada de execuções de fluxos.
   `
 CREATE TABLE IF NOT EXISTS flow_checkpoints (
   thread_id     TEXT NOT NULL,

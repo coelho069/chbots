@@ -17,6 +17,7 @@ import { extractDelegations, extractManualDelegation } from './delegation'
 import { checkCache, storeCache } from './llmCache'
 import type { MemoryService } from './memory'
 import type { McpService } from './mcp'
+import type { VerificadorService } from '../verificador'
 import { getApprovals } from '../db/repos/mcp'
 import { logMcpCall } from '../db/repos/mcp'
 import TOOL_REGISTRY from '../tools/registry'
@@ -66,6 +67,7 @@ export interface ChatDeps {
   mcpService?: McpService
   builtinTools?: BuiltinToolSet
   onOfficeEvent?: (ev: import('@shared/office').OfficeEvent) => void
+  verificador?: VerificadorService
 }
 
 export class ChatService {
@@ -322,6 +324,7 @@ export class ChatService {
         tokensIn: result.tokensIn,
         tokensOut: result.tokensOut
       })
+      this.deps.verificador?.verificarAsync(saved.id, finalText, history, agent)
       console.info(`[MCP] resposta final pronta para conversa ${conversationId} em ${Date.now() - requestStartedAt}ms`)
       const source = `conversa com agente ${agent.name} em ${new Date().toLocaleDateString('pt-BR')}`
       this.deps.memory?.extractAndSaveAsync(agent.id, `Usuário: ${text}\nAssistente: ${finalText}`, source)

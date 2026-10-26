@@ -74,6 +74,7 @@ import { getApprovals, logMcpCall, removeApproval, setApproval } from './db/repo
 import { getMcpTranslation, saveMcpTranslation } from './db/repos/mcpTranslations'
 import { clearMcpAutoTranslations } from './db/repos/mcpAutoTranslations'
 import type { McpService } from './services/mcp'
+import type { VerificadorService } from './verificador'
 import { importFromFile, loadMcpFile, saveMcpFile } from './mcpConfig'
 import type { McpServerConfig, McpToolApproval } from '@shared/mcp'
 import { getDelegationConfig, listDelegations, saveDelegationConfig } from './db/repos/delegations'
@@ -96,6 +97,7 @@ export interface IpcContext {
   getWindow: () => BrowserWindow | null
   isTrustedUrl: (url: string) => boolean
   resolveDraft: (draftId: number, approve: boolean) => void
+  verificador?: VerificadorService
 }
 
 type Handler = (...args: unknown[]) => unknown
@@ -576,4 +578,7 @@ export function registerIpc(ctx: IpcContext): void {
   handle(channels.draftRespond, (rawDraftId, approve) => {
     ctx.resolveDraft(id(rawDraftId), Boolean(approve))
   })
+
+  // ---- Verificador de Fontes ----
+  handle(channels.verificacoesList, (rawId) => ctx.verificador?.listSummary(id(rawId)) ?? null)
 }

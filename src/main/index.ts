@@ -26,6 +26,7 @@ import { listAgents } from './db/repos/agents'
 import { insertPage, updatePage } from './db/repos/pages'
 import { insertDraft, updateDraftStatus } from './db/repos/drafts'
 import { startApiServer } from './api'
+import { VerificadorService } from './verificador'
 
 const devServerUrl = process.env.ELECTRON_RENDERER_URL
 const iconPath = join(__dirname, '../../resources/icon.png')
@@ -196,6 +197,14 @@ if (!app.requestSingleInstanceLock()) {
     })
     chat.deps.delegation = delegation
 
+    const verificador = new VerificadorService({
+      db,
+      secrets,
+      createClient,
+      onUpdated: (messageId) => send(events.verificacoesUpdated, messageId)
+    })
+    chat.deps.verificador = verificador
+
     // Resolvers para o loop de aprovação de rascunhos
     const draftResolvers = new Map<number, (approve: boolean) => void>()
 
@@ -364,7 +373,8 @@ if (!app.requestSingleInstanceLock()) {
       dataDir,
       getWindow: () => mainWindow,
       isTrustedUrl,
-      resolveDraft: (draftId, approve) => draftResolvers.get(draftId)?.(approve)
+      resolveDraft: (draftId, approve) => draftResolvers.get(draftId)?.(approve),
+      verificador
     })
 
     startApiServer({ db, secrets, createClient })

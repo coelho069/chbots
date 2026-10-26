@@ -103,7 +103,9 @@ export const channels = {
   pagesGet: 'pages:get',
   pagesDelete: 'pages:delete',
   // ---- Canais externos (e-mail, Slack) ----
-  draftRespond: 'draft:respond'
+  draftRespond: 'draft:respond',
+  // ---- Verificador de Fontes ----
+  verificacoesList: 'verificacoes:list'
 } as const
 
 // Atalho global de "fechar item atual"; registrado no menu do Electron.
@@ -123,5 +125,6 @@ export const events = {
   mcpToolCall: 'mcp:tool-call',
   escritorioEvento: 'escritorio:evento',
   pageOpen: 'page:open',
-  draftPending: 'draft:pending'
+  draftPending: 'draft:pending',
+  verificacoesUpdated: 'verificacoes:updated'
 } as const

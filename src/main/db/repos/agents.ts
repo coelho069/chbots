@@ -15,6 +15,9 @@ interface Row {
   temperature: number
   usar_cache: number
   mcp_tools: string
+  verificar_fontes: number
+  verificador_provider_id: number | null
+  verificador_model: string | null
   created_at: string
   updated_at: string
 }
@@ -29,6 +32,9 @@ const toAgent = (r: Row): Agent => ({
   temperature: r.temperature,
   usarCache: r.usar_cache === 1,
   mcpTools: JSON.parse(r.mcp_tools ?? '[]') as Agent['mcpTools'],
+  verificarFontes: r.verificar_fontes === 1,
+  verificadorProviderId: r.verificador_provider_id ?? null,
+  verificadorModel: r.verificador_model ?? null,
   createdAt: r.created_at,
   updatedAt: r.updated_at
 })
@@ -59,19 +65,19 @@ export function insertAgent(db: Db, a: AgentInput): Agent {
   const ts = now()
   const { lastInsertRowid } = db
     .prepare(
-      `INSERT INTO agents (name, color, system_prompt, provider_id, model, temperature, usar_cache, mcp_tools, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO agents (name, color, system_prompt, provider_id, model, temperature, usar_cache, mcp_tools, verificar_fontes, verificador_provider_id, verificador_model, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
-    .run(a.name, a.color, a.systemPrompt, a.providerId, a.model, a.temperature, a.usarCache ? 1 : 0, JSON.stringify(a.mcpTools ?? []), ts, ts)
+    .run(a.name, a.color, a.systemPrompt, a.providerId, a.model, a.temperature, a.usarCache ? 1 : 0, JSON.stringify(a.mcpTools ?? []), a.verificarFontes ? 1 : 0, a.verificadorProviderId ?? null, a.verificadorModel ?? null, ts, ts)
   invalidateAgentCache()
   return getAgent(db, Number(lastInsertRowid))!
 }
 
 export function updateAgent(db: Db, id: number, a: AgentInput): Agent {
   db.prepare(
-    `UPDATE agents SET name = ?, color = ?, system_prompt = ?, provider_id = ?, model = ?, temperature = ?, usar_cache = ?, mcp_tools = ?, updated_at = ?
+    `UPDATE agents SET name = ?, color = ?, system_prompt = ?, provider_id = ?, model = ?, temperature = ?, usar_cache = ?, mcp_tools = ?, verificar_fontes = ?, verificador_provider_id = ?, verificador_model = ?, updated_at = ?
      WHERE id = ?`
-  ).run(a.name, a.color, a.systemPrompt, a.providerId, a.model, a.temperature, a.usarCache ? 1 : 0, JSON.stringify(a.mcpTools ?? []), now(), id)
+  ).run(a.name, a.color, a.systemPrompt, a.providerId, a.model, a.temperature, a.usarCache ? 1 : 0, JSON.stringify(a.mcpTools ?? []), a.verificarFontes ? 1 : 0, a.verificadorProviderId ?? null, a.verificadorModel ?? null, now(), id)
   invalidateAgentCache(id)
   return getAgent(db, id)!
 }

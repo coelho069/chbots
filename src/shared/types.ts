@@ -57,8 +57,34 @@ export interface Agent {
   temperature: number
   usarCache: boolean
   mcpTools: { serverName: string; toolName: string }[]
+  verificarFontes: boolean
+  verificadorProviderId: number | null
+  verificadorModel: string | null
   createdAt: string
   updatedAt: string
+}
+
+export type VeredictoFonte = 'CORRETO' | 'ERRADO' | 'SEM_SUPORTE' | 'FONTE_INACESSIVEL'
+
+export interface Verificacao {
+  id: number
+  messageId: number
+  claimText: string
+  sourceUrl: string | null
+  sourceSnippet: string | null
+  veredito: VeredictoFonte
+  createdAt: string
+}
+
+export interface VerificacaoSummary {
+  messageId: number
+  total: number
+  correto: number
+  errado: number
+  semSuporte: number
+  inacessivel: number
+  score: number | null  // % de CORRETO sobre total sem FONTE_INACESSIVEL
+  items: Verificacao[]
 }
 
 export type ConversationOrigin = 'manual' | 'handoff' | 'routine'
@@ -481,5 +507,9 @@ export interface PilotosApi {
   drafts: {
     respond(draftId: number, approve: boolean): Promise<void>
     onPending(listener: (draft: SendDraft) => void): () => void
+  }
+  verificacoes: {
+    list(messageId: number): Promise<VerificacaoSummary | null>
+    onUpdated(listener: (messageId: number) => void): () => void
   }
 }
