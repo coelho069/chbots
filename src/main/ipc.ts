@@ -303,7 +303,12 @@ export function registerIpc(ctx: IpcContext): void {
     flowRunner.respondInterrupt(id(rawRunId), Boolean(rawApproved))
   })
 
-  handle(channels.settingsUpdate, (input) => saveSettings(db, settingsInput.parse(input)))
+  handle(channels.settingsUpdate, (input) => {
+    const parsed = settingsInput.parse(input)
+    const existing = getSettings(db)
+    // preserve apiToken: the renderer never sees/sends it, so always keep the stored value
+    return saveSettings(db, { ...existing, ...parsed, apiToken: existing.apiToken })
+  })
 
   // ---- Caixa-Preta ----
   type BBRow = { tipo: 'fluxo' | 'rotina'; execucaoId: number; nome: string; status: string; agentId: number | null; fluxoId: number | null; iniciadoEm: string; finalizadoEm: string | null; erro: string | null }

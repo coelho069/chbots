@@ -305,6 +305,18 @@ export function SettingsPage({ providers, onProvidersChanged }: Props) {
           <button onClick={() => void backup()}>Fazer backup do banco</button>
         </div>
       </section>
+
+      {settings?.apiToken && (
+        <section className="card">
+          <h2>Acesso móvel</h2>
+          <p className="muted small">Token para o app Android. Nunca compartilhe.</p>
+          <div className="row" style={{ gap: 8, marginTop: 8, alignItems: 'center' }}>
+            <input readOnly value={settings.apiToken} className="mono" style={{ flex: 1, fontSize: 12 }} />
+            <button onClick={() => void navigator.clipboard.writeText(settings.apiToken)}>Copiar</button>
+          </div>
+          <p className="muted small">IP para o celular: use 100.x.x.x (Tailscale) ou o IP local da rede.</p>
+        </section>
+      )}
     </div>
   )
 }

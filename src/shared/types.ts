@@ -143,9 +143,10 @@ export interface Settings {
   minimizeToTray: boolean
   notifyOnRun: boolean
   retentionDays: number
+  apiToken: string
 }
 
-export const defaultSettings: Settings = { minimizeToTray: true, notifyOnRun: true, retentionDays: 30 }
+export const defaultSettings: Settings = { minimizeToTray: true, notifyOnRun: true, retentionDays: 30, apiToken: '' }
 
 // ---- Cache / Desempenho ----
 

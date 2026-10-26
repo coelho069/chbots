@@ -190,7 +190,8 @@ export type DelegationConfigInput = z.infer<typeof delegationConfigInput>
 export const settingsInput = z.object({
   minimizeToTray: z.boolean(),
   notifyOnRun: z.boolean(),
-  retentionDays: z.number().int().min(1).max(3650).default(30)
+  retentionDays: z.number().int().min(1).max(3650).default(30),
+  apiToken: z.string().optional()
 })
 
 // ---- MCP ----

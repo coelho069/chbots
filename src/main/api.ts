@@ -1,15 +1,22 @@
-import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
+import { randomUUID } from 'node:crypto'
+import { createServer,type IncomingMessage, type ServerResponse } from 'node:http'
 import type { Db } from './db/connection'
 import type { SecretStore } from './secrets'
 import type { ClientFactory } from './llm'
 import { listAgents } from './db/repos/agents'
 import { listConversations, insertConversation, deleteConversation, listMessages } from './db/repos/conversations'
+import { listGeneratedPrompts } from './db/repos/prompts'
+import { listFlows, listFlowRuns } from './db/repos/flows'
+import { listRoutines, listRuns } from './db/repos/routines'
+import { listPages, getPage } from './db/repos/pages'
+import { getSettings, saveSettings } from './db/repos/settings'
 import { ChatService } from './services/chat'
 
 export interface ApiDeps {
   db: Db
   secrets: SecretStore
   createClient: ClientFactory
+  flowRunner?: { start(flowId: number, trigger: 'manual'): { run: unknown; done: Promise<unknown> } }
 }
 
 function parseBody(req: IncomingMessage): Promise<unknown> {
@@ -36,8 +43,14 @@ function error(res: ServerResponse, message: string, status = 500): void {
   json(res, { error: message }, status)
 }
 
+function checkAuth(req: IncomingMessage, token: string): boolean {
+  return token !== '' && req.headers.authorization === `Bearer ${token}`
+}
+
 export function startApiServer(deps: ApiDeps): void {
-  const { db, secrets, createClient } = deps
+  const { db, secrets, createClient, flowRunner } = deps
+  const initial = getSettings(db)
+  if (initial.apiToken === '') saveSettings(db, { ...initial, apiToken: randomUUID() })
 
   const server = createServer(async (req, res) => {
     const method = req.method ?? 'GET'
@@ -49,13 +62,22 @@ export function startApiServer(deps: ApiDeps): void {
       res.writeHead(204, {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type'
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization'
       })
       res.end()
       return
     }
 
     try {
+      if (method === 'GET' && path === '/api/ping') {
+        json(res, { ok: true })
+        return
+      }
+      if (!checkAuth(req, getSettings(db).apiToken)) {
+        error(res, 'Unauthorized', 401)
+        return
+      }
+
       // GET /api/agents
       if (method === 'GET' && path === '/api/agents') {
         const agents = listAgents(db)
@@ -136,6 +158,48 @@ export function startApiServer(deps: ApiDeps): void {
         }
         res.end()
         return
+      }
+
+      const get = (p: string): boolean => method === 'GET' && path === p
+      if (get('/api/prompts')) return json(res, listGeneratedPrompts(db))
+      if (get('/api/flows')) return json(res, listFlows(db))
+      if (get('/api/routines')) return json(res, listRoutines(db))
+      if (get('/api/routine-runs')) return json(res, listRuns(db, null))
+      if (get('/api/pages')) return json(res, listPages(db))
+      if (get('/api/settings')) return json(res, getSettings(db))
+      // colunas reais do schema (migrations.ts), não as do briefing
+      if (get('/api/mcp/calls')) return json(res, db.prepare('SELECT * FROM mcp_calls ORDER BY started_at DESC LIMIT 200').all())
+      if (get('/api/memoria/fatos')) return json(res, db.prepare('SELECT * FROM memoria_fatos ORDER BY criado_em DESC LIMIT 100').all())
+      if (get('/api/blackbox')) {
+        return json(res, db.prepare(`
+          SELECT * FROM (
+            SELECT 'fluxo' as tipo, fr.id as execucaoId, f.name as nome, fr.status, NULL as agentId, f.id as fluxoId,
+                   fr.started_at as iniciadoEm, fr.finished_at as finalizadoEm, fr.error as erro
+            FROM flow_runs fr JOIN flows f ON f.id = fr.flow_id
+            UNION ALL
+            SELECT 'rotina', rr.id, r.name, rr.status, r.source_agent_id, NULL,
+                   rr.started_at, rr.finished_at, rr.error
+            FROM routine_runs rr JOIN routines r ON r.id = rr.routine_id
+          ) ORDER BY iniciadoEm DESC LIMIT 200
+        `).all())
+      }
+
+      const routineRunsMatch = path.match(/^\/api\/routine-runs\/(\d+)$/)
+      if (method === 'GET' && routineRunsMatch) return json(res, listRuns(db, Number(routineRunsMatch[1])))
+
+      const pageMatch = path.match(/^\/api\/pages\/(\d+)$/)
+      if (method === 'GET' && pageMatch) {
+        const page = getPage(db, Number(pageMatch[1]))
+        return page ? json(res, page) : error(res, 'Not found', 404)
+      }
+
+      const flowRunsMatch = path.match(/^\/api\/flows\/(\d+)\/runs$/)
+      if (method === 'GET' && flowRunsMatch) return json(res, listFlowRuns(db, Number(flowRunsMatch[1])))
+
+      const flowRunMatch = path.match(/^\/api\/flows\/(\d+)\/run$/)
+      if (method === 'POST' && flowRunMatch) {
+        if (!flowRunner) return error(res, 'Flow runner unavailable', 501)
+        return json(res, flowRunner.start(Number(flowRunMatch[1]), 'manual').run)
       }
 
       // Not found
