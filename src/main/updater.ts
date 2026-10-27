@@ -1,7 +1,7 @@
 // Buscar atualização: git fetch/pull + build + novo empacotamento, depois abre o app novo. Roda a partir do repositório do projeto.
 import { spawn, execFileSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { app } from 'electron'
 import { events } from '@shared/ipc'
 import type { AppVersion, LastUpdate, UpdateCheck, UpdateStatus } from '@shared/types'
@@ -21,6 +21,15 @@ const gitSync = (args: string[]): string => execFileSync('git', args, { cwd: rep
 // Fixo ao subir: depois do git pull o HEAD já mudou, mas o app em execução ainda é o antigo.
 let version: AppVersion = { version: app.getVersion(), commit: 'dev' }
 try { if (repo) version = { ...version, commit: gitSync(['rev-parse', '--short', 'HEAD']) } } catch { /* sem git: fica "dev" */ }
+// HEAD vivo do repositório (o build em execução pode estar atrás dele) + dados de onde o programa roda.
+export function getAccessInfo(): Omit<import('@shared/types').AccessInfo, 'port' | 'listening' | 'uptimeSec'> {
+  let head = 'dev'
+  try { if (repo) head = gitSync(['rev-parse', '--short', 'HEAD']) } catch { /* sem git */ }
+  let buildDate = ''
+  try { buildDate = statSync(process.execPath).mtime.toISOString() } catch { /* ignora */ }
+  return { ...version, head, runDir: basename(dirname(dirname(process.execPath))), buildDate }
+}
+
 export const getVersion = (): AppVersion => version
 
 // index.ts liga isto ao send() que já alimenta a janela e o SSE do navegador.

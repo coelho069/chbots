@@ -38,6 +38,11 @@ export const channels = {
   updateStatus: 'update:status',
   updateLast: 'update:last',
   updateAck: 'update:ack',
+  accessInfo: 'access:info',
+  accessNewToken: 'access:new-token',
+  accessDevices: 'access:devices',
+  accessDisconnect: 'access:disconnect',
+  accessRestartWeb: 'access:restart-web',
   settingsTestOllama: 'settings:test-ollama',
   promptsCorrect: 'prompts:correct',
   promptsGenerate: 'prompts:generate',
@@ -135,5 +140,6 @@ export const events = {
   pageOpen: 'page:open',
   draftPending: 'draft:pending',
   verificacoesUpdated: 'verificacoes:updated',
-  updateProgress: 'update:progress'
+  updateProgress: 'update:progress',
+  webReload: 'web:reload'
 } as const

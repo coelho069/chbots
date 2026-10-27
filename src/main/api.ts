@@ -16,7 +16,8 @@ import { WEB_UI } from './webui'
 import { readFile } from 'node:fs/promises'
 import { join, extname, normalize } from 'node:path'
 import { getVersion } from './updater'
-import { webHandlers, addEventClient, DESKTOP_ONLY } from './webBridge'
+import { webHandlers, addEventClient, DESKTOP_ONLY, broadcast, isBlocked, touchDevice } from './webBridge'
+import { events } from '@shared/ipc'
 
 const RENDERER_DIR = join(__dirname, '../renderer')
 const MIME: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json', '.woff2': 'font/woff2', '.woff': 'font/woff', '.map': 'application/json' }
@@ -74,6 +75,8 @@ function checkAuth(req: IncomingMessage, token: string): boolean {
 
 export interface ApiControl {
   setEnabled(on: boolean): void
+  restart(): Promise<void>
+  info(): { listening: boolean; startedAt: number | null; port: number }
 }
 
 const API_PORT = 3111
@@ -111,13 +114,14 @@ export function startApiServer(deps: ApiDeps): ApiControl {
         json(res, { ok: true })
         return
       }
-      if (!checkAuth(req, getSettings(db).apiToken)) {
+      if (isBlocked(req) || !checkAuth(req, getSettings(db).apiToken)) {
         error(res, 'Unauthorized', 401)
         return
       }
+      touchDevice(req)
 
       // Ponte do renderer web: mesmos handlers do IPC do desktop + eventos por SSE
-      if (method === 'GET' && path === '/api/events') return addEventClient(res)
+      if (method === 'GET' && path === '/api/events') return addEventClient(req, res)
       if (method === 'POST' && path === '/api/ipc') {
         const b = (await parseBody(req)) as { channel?: unknown; args?: unknown }
         const ch = typeof b.channel === 'string' ? b.channel : ''
@@ -344,6 +348,19 @@ export function startApiServer(deps: ApiDeps): ApiControl {
       console.log('[API] desligada')
     }
   }
+  let startedAt: number | null = null
+  server.on('listening', () => { startedAt = Date.now() })
+  server.on('close', () => { startedAt = null })
+
+  // Avisa os navegadores (que recarregam após alguns segundos) e reinicia só o servidor HTTP.
+  const restart = async (): Promise<void> => {
+    if (!server.listening) return
+    broadcast(events.webReload)
+    await new Promise((r) => setTimeout(r, 300))
+    await new Promise<void>((r) => { server.close(() => r()); server.closeAllConnections() })
+    server.listen(API_PORT, '0.0.0.0', () => console.log(`[API] reiniciada em 0.0.0.0:${API_PORT}`))
+  }
+
   setEnabled(initial.apiEnabled)
-  return { setEnabled }
+  return { setEnabled, restart, info: () => ({ listening: server.listening, startedAt, port: API_PORT }) }
 }

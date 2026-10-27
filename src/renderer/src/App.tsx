@@ -18,9 +18,10 @@ const RunsPage      = lazy(() => import('./pages/RunsPage').then((m) => ({ defau
 const SettingsPage  = lazy(() => import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 const McpPage       = lazy(() => import('./pages/McpPage').then((m) => ({ default: m.McpPage })))
 const OfficePage    = lazy(() => import('./pages/OfficePage').then((m) => ({ default: m.OfficePage })))
+const AccessPage    = lazy(() => import('./pages/AccessPage').then((m) => ({ default: m.AccessPage })))
 const PagesPage     = lazy(() => import('./pages/PagesPage').then((m) => ({ default: m.PagesPage })))
 
-export type Page = 'agents' | 'chat' | 'promptgen' | 'flows' | 'routines' | 'runs' | 'blackbox' | 'settings' | 'memory' | 'mcp' | 'office' | 'pages'
+export type Page = 'agents' | 'chat' | 'promptgen' | 'flows' | 'routines' | 'runs' | 'blackbox' | 'settings' | 'memory' | 'mcp' | 'office' | 'pages' | 'access'
 
 const homePage: Page = 'chat'
 
@@ -41,6 +42,7 @@ const nav: { page: Page; label: string; icon: string; shortLabel: string }[] = [
   { page: 'memory',   label: 'Memória',              icon: '🧠', shortLabel: 'Memória' },
   { page: 'mcp',       label: 'MCP',                  icon: '⬡', shortLabel: 'MCP'     },
   { page: 'pages',     label: 'Pages',               icon: '🗒', shortLabel: 'Pages'   },
+  { page: 'access',    label: 'Central de acesso',   icon: '🔑', shortLabel: 'Acesso'  },
   { page: 'settings',  label: 'Configurações',       icon: '⚙', shortLabel: 'Config.' },
 ]
 
@@ -145,6 +147,14 @@ function Shell() {
   useEffect(() => {
     if (loaded && providers.length === 0) navigate('settings')
     else if (loaded && agents.length === 0) navigate('agents')
+  }, [loaded]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Link direto da URL (http://ip:3111/#/rota) abre a tela correspondente
+  useEffect(() => {
+    if (!loaded) return
+    const p = location.hash.replace('#/', '')
+    const target = nav.find((n) => n.page === p)
+    if (target) navigate(target.page)
   }, [loaded]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const refreshActiveCount = useCallback(() => {
@@ -322,6 +332,7 @@ function Shell() {
             {page === 'memory' && <MemoryPage />}
             {page === 'mcp' && <McpPage />}
             {page === 'pages' && <PagesPage onOpen={setOpenPage} />}
+            {page === 'access' && <AccessPage onNavigate={navigate} />}
             {page === 'settings' && (
               <SettingsPage providers={providers} onProvidersChanged={reloadProviders} />
             )}

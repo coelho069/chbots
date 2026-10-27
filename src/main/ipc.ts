@@ -1,10 +1,11 @@
-import { randomUUID } from 'node:crypto'
 import { rmSync } from 'node:fs'
 import { networkInterfaces } from 'node:os'
 import { join } from 'node:path'
 import { writeFile } from 'node:fs/promises'
 import { webHandlers } from './webBridge'
-import { applyUpdate, checkUpdate, clearLastUpdate, getUpdateStatus, getVersion, takeLastUpdate } from './updater'
+import { disconnectIp, listDevices, resetClients } from './webBridge'
+import { randomUUID } from 'node:crypto'
+import { applyUpdate, getAccessInfo, checkUpdate, clearLastUpdate, getUpdateStatus, getVersion, takeLastUpdate } from './updater'
 import { dialog, ipcMain, shell, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
 import cron from 'node-cron'
 import { z } from 'zod'
@@ -102,6 +103,7 @@ export interface IpcContext {
   onSettingsChanged: (settings: Settings) => void
   getWindow: () => BrowserWindow | null
   isTrustedUrl: (url: string) => boolean
+  getApi: () => { restart(): Promise<void>; info(): { listening: boolean; startedAt: number | null; port: number } } | undefined
   resolveDraft: (draftId: number, approve: boolean) => void
   verificador?: VerificadorService
 }
@@ -202,6 +204,22 @@ export function registerIpc(ctx: IpcContext): void {
       instruction: req.instruction,
       origin: 'handoff'
     })
+  })
+
+  // ---- Central de acesso ----
+  handle(channels.accessInfo, () => {
+    const i = ctx.getApi()?.info()
+    return { ...getAccessInfo(), port: i?.port ?? 3111, listening: i?.listening ?? false, uptimeSec: i?.startedAt ? Math.floor((Date.now() - i.startedAt) / 1000) : 0 }
+  })
+  handle(channels.accessDevices, () => listDevices())
+  handle(channels.accessDisconnect, (ip) => disconnectIp(z.string().min(1).parse(ip)))
+  handle(channels.accessRestartWeb, () => ctx.getApi()?.restart())
+  // Novo token: o anterior para de valer e todos os navegadores/SSE conectados caem.
+  handle(channels.accessNewToken, () => {
+    const token = randomUUID()
+    saveSettings(db, { ...getSettings(db), apiToken: token })
+    resetClients()
+    return token
   })
 
   // ---- Atualização ----

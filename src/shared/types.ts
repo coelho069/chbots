@@ -377,6 +377,17 @@ export interface UpdateStatus {
   percent: number
   failedEtapa: string | null
 }
+export interface AccessInfo {
+  version: string
+  commit: string // build em execução (o que a URL serve)
+  head: string // HEAD atual do repositório
+  runDir: string
+  buildDate: string
+  port: number
+  listening: boolean
+  uptimeSec: number
+}
+export interface AccessDevice { ip: string; ua: string; last: number }
 export interface UpdateProgress { etapa: string; percent: number; log: string; error: string | null }
 export interface LastUpdate { commitAntigo: string; commitNovo: string; versao: string; data: string; commits: string[] }
 
@@ -429,6 +440,13 @@ export interface PilotosApi {
     openDataDir(): Promise<void>
     backup(): Promise<string | null>
     testOllama(): Promise<string>
+  }
+  access: {
+    info(): Promise<AccessInfo>
+    newToken(): Promise<string>
+    devices(): Promise<AccessDevice[]>
+    disconnect(ip: string): Promise<void>
+    restartWeb(): Promise<void>
   }
   update: {
     version(): Promise<AppVersion>

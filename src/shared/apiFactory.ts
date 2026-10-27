@@ -53,6 +53,13 @@ export function buildApi(invoke: Invoke, subscribe: Subscribe): PilotosApi {
       backup: () => invoke(c.settingsBackup),
       testOllama: () => invoke(c.settingsTestOllama)
     },
+    access: {
+      info: () => invoke(c.accessInfo),
+      newToken: () => invoke(c.accessNewToken),
+      devices: () => invoke(c.accessDevices),
+      disconnect: (ip) => invoke(c.accessDisconnect, ip),
+      restartWeb: () => invoke(c.accessRestartWeb)
+    },
     update: {
       version: () => invoke(c.updateVersion),
       check: () => invoke(c.updateCheck),

@@ -399,6 +399,7 @@ if (!app.requestSingleInstanceLock()) {
       onSettingsChanged: (s) => apiControl?.setEnabled(s.apiEnabled),
       getWindow: () => mainWindow,
       isTrustedUrl,
+      getApi: () => apiControl,
       resolveDraft: (draftId, approve) => draftResolvers.get(draftId)?.(approve),
       verificador
     })

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import QRCode from 'qrcode'
 import {
   defaultBaseUrls,
@@ -28,7 +28,8 @@ const emptyProvider = (kind: ProviderKind = 'openai'): ProviderInput => ({
   apiKey: undefined
 })
 
-function UpdateSection() {
+// readOnly: no navegador não dá para atualizar o programa; info: linhas extras sob o título (Central de acesso).
+export function UpdateSection({ readOnly = false, info }: { readOnly?: boolean; info?: ReactNode }) {
   const [ver, setVer] = useState<AppVersion | null>(null)
   const [check, setCheck] = useState<UpdateCheck | null>(null)
   const [busy, setBusy] = useState(false)
@@ -67,11 +68,12 @@ function UpdateSection() {
   return (
     <section className="card">
       <h2>Atualização</h2>
-      <p className="muted small mono">{ver ? `v${ver.version} · ${ver.commit}` : '…'}</p>
+      {info ?? <p className="muted small mono">{ver ? `v${ver.version} · ${ver.commit}` : '…'}</p>}
+      {readOnly && <p className="muted small">Disponível só no programa do PC</p>}
       <div className="actions">
         <button disabled={busy || running} onClick={() => void search()}>Buscar atualização</button>
-        {check && check.behind > 0 && !started && <button onClick={() => void apply()}>Atualizar agora</button>}
-        {failed && <button onClick={() => void apply()}>Tentar de novo</button>}
+        {!readOnly && check && check.behind > 0 && !started && <button onClick={() => void apply()}>Atualizar agora</button>}
+        {!readOnly && failed && <button onClick={() => void apply()}>Tentar de novo</button>}
       </div>
       {check?.error && <p className="small" style={{ color: '#c00' }}>{check.error}</p>}
       {check && !check.error && (check.behind === 0

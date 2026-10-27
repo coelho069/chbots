@@ -1,4 +1,5 @@
 // No navegador não há preload: monta window.pilotos com fetch (/api/ipc) e SSE (/api/events), autenticando com Bearer.
+import { events } from '@shared/ipc'
 import { buildApi, type Invoke, type Subscribe } from '@shared/apiFactory'
 
 const TK = 'tk'
@@ -73,6 +74,9 @@ async function boot(): Promise<void> {
   // Diálogo nativo vira confirm(); 'save' não existe no navegador.
   api.app.askUnsaved = async () => (confirm('Há alterações não salvas. Descartar?') ? 'discard' : 'cancel')
   window.pilotos = api
+  ;(window as unknown as { pilotosWeb: boolean }).pilotosWeb = true
+  // "Recarregar web" no PC: dá tempo do servidor voltar antes de recarregar
+  subscribe(events.webReload, () => { setTimeout(() => location.reload(), 3000) })
   watchVersion()
   announceUpdate()
 }
