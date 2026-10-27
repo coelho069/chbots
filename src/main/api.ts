@@ -11,6 +11,7 @@ import { listRoutines, listRuns } from './db/repos/routines'
 import { listPages, getPage } from './db/repos/pages'
 import { getSettings, saveSettings } from './db/repos/settings'
 import { ChatService } from './services/chat'
+import { WEB_UI } from './webui'
 
 export interface ApiDeps {
   db: Db
@@ -75,6 +76,11 @@ export function startApiServer(deps: ApiDeps): ApiControl {
     }
 
     try {
+      if (method === 'GET' && path === '/') {
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
+        res.end(WEB_UI)
+        return
+      }
       if (method === 'GET' && path === '/api/ping') {
         json(res, { ok: true })
         return

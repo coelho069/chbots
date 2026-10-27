@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import QRCode from 'qrcode'
 import {
   defaultBaseUrls,
   providerKindLabels,
@@ -32,6 +33,12 @@ export function SettingsPage({ providers, onProvidersChanged }: Props) {
   const [settings, setSettings] = useState<Settings | null>(null)
   const [localIps, setLocalIps] = useState<string[]>([])
   const [showToken, setShowToken] = useState(false)
+  const [qr, setQr] = useState('')
+  const link = localIps[0] ? `http://${localIps[0]}:3111` : ''
+  useEffect(() => {
+    if (link) void QRCode.toDataURL(link, { margin: 1 }).then(setQr)
+    else setQr('')
+  }, [link])
   const [dataDir, setDataDir] = useState('')
   const [perfStats, setPerfStats] = useState<CacheStats | null>(null)
   const [claudeModel, setClaudeModel] = useState('')
@@ -361,13 +368,14 @@ export function SettingsPage({ providers, onProvidersChanged }: Props) {
               checked={settings.apiEnabled}
               onChange={(e) => void updateSettings({ apiEnabled: e.target.checked })}
             />
-            Permitir que o app Android acesse este computador (porta 3111)
+            Permitir acesso pelo celular (app ou navegador, porta 3111)
           </label>
           {settings.apiEnabled && (
             <>
               <p className="muted small">
                 Endereço: {localIps.length > 0 ? localIps.map((ip) => `http://${ip}:3111`).join(' · ') : 'nenhuma rede encontrada'}
               </p>
+              {qr && <img src={qr} alt="QR do endereço" width={160} height={160} />}
               <p className="muted small">Token do app Android. Nunca compartilhe.</p>
               <div className="row" style={{ gap: 8, marginTop: 8, alignItems: 'center' }}>
                 <input readOnly value={showToken ? settings.apiToken : '•'.repeat(24)} className="mono" style={{ flex: 1, fontSize: 12 }} />
