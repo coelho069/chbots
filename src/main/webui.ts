@@ -31,7 +31,7 @@ c=await (await api('/api/conversations',{method:'POST',body:JSON.stringify({agen
 const add=(cls,t)=>{const d=el('div',{className:'item '+cls,textContent:t});msgs.append(d);return d}
 const f=el('form',{id:'send',onsubmit:async e=>{e.preventDefault();const t=i.value.trim();if(!t)return;i.value='';add('u',t);const b=add('','…')
 try{const r=await api('/api/conversations/'+c.id+'/chat',{method:'POST',body:JSON.stringify({text:t})}),rd=r.body.getReader(),dec=new TextDecoder();let buf='',txt=''
-for(;;){const{value,done}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});const parts=buf.split('\n\n');buf=parts.pop()
+for(;;){const{value,done}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});const parts=buf.split('\\n\\n');buf=parts.pop()
 for(const p of parts){if(!p.startsWith('data: '))continue;const j=JSON.parse(p.slice(6));if(j.delta){txt+=j.delta;b.textContent=txt}if(j.type==='error')b.textContent=j.error}}}
 catch(x){b.textContent=String(x)}}},i,el('button',{textContent:'Enviar'}))
 m.replaceChildren(el('h3',0,a.name),msgs,f)}
