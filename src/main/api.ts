@@ -3,10 +3,11 @@ import { createServer,type IncomingMessage, type ServerResponse } from 'node:htt
 import type { Db } from './db/connection'
 import type { SecretStore } from './secrets'
 import type { ClientFactory } from './llm'
-import { listAgents } from './db/repos/agents'
+import { listAgents, getAgent, insertAgent, updateAgent, deleteAgent } from './db/repos/agents'
+import { listProviders, toPublic } from './db/repos/providers'
 import { listConversations, insertConversation, deleteConversation, listMessages } from './db/repos/conversations'
 import { listGeneratedPrompts } from './db/repos/prompts'
-import { listFlows, listFlowRuns } from './db/repos/flows'
+import { listFlows, listFlowRuns, listSteps } from './db/repos/flows'
 import { listRoutines, listRuns } from './db/repos/routines'
 import { listPages, getPage } from './db/repos/pages'
 import { getSettings, saveSettings } from './db/repos/settings'
@@ -212,6 +213,51 @@ export function startApiServer(deps: ApiDeps): ApiControl {
       if (method === 'POST' && flowRunMatch) {
         if (!flowRunner) return error(res, 'Flow runner unavailable', 501)
         return json(res, flowRunner.start(Number(flowRunMatch[1]), 'manual').run)
+      }
+
+      if (get('/api/providers')) return json(res, listProviders(db).map(toPublic))
+
+      const flowStepsMatch = path.match(/^\/api\/flow-runs\/(\d+)\/steps$/)
+      if (method === 'GET' && flowStepsMatch) return json(res, listSteps(db, Number(flowStepsMatch[1])))
+
+      // POST /api/agents (criar) e PUT/DELETE /api/agents/:id; campos não enviados mantêm o valor atual
+      const agentMatch = path.match(/^\/api\/agents(?:\/(\d+))?$/)
+      if (agentMatch && (method === 'POST' || method === 'PUT')) {
+        const id = agentMatch[1] ? Number(agentMatch[1]) : null
+        if ((method === 'PUT') !== (id !== null)) return error(res, 'Not found', 404)
+        const cur = id !== null ? getAgent(db, id) : null
+        if (id !== null && !cur) return error(res, 'Not found', 404)
+        const b = (await parseBody(req)) as Record<string, unknown>
+        const a = {
+          name: String(b.name ?? cur?.name ?? '').trim(),
+          color: cur?.color ?? '#2d6cdf',
+          systemPrompt: String(b.systemPrompt ?? cur?.systemPrompt ?? ''),
+          providerId: Number(b.providerId ?? cur?.providerId),
+          model: String(b.model ?? cur?.model ?? '').trim(),
+          temperature: Number(b.temperature ?? cur?.temperature ?? 0.7),
+          usarCache: cur?.usarCache ?? false,
+          mcpTools: cur?.mcpTools ?? [],
+          verificarFontes: cur?.verificarFontes ?? false,
+          verificadorProviderId: cur?.verificadorProviderId ?? null,
+          verificadorModel: cur?.verificadorModel ?? null
+        }
+        if (!a.name || !a.model || !Number.isFinite(a.providerId) || !Number.isFinite(a.temperature)) return error(res, 'name, providerId, model e temperature são obrigatórios', 400)
+        return json(res, id !== null ? updateAgent(db, id, a) : insertAgent(db, a))
+      }
+      if (method === 'DELETE' && agentMatch?.[1]) {
+        deleteAgent(db, Number(agentMatch[1]))
+        return json(res, { ok: true })
+      }
+
+      // só campos inofensivos: o token e a porta não mudam por aqui
+      if (method === 'POST' && path === '/api/settings') {
+        const b = (await parseBody(req)) as { notifyOnRun?: unknown; retentionDays?: unknown }
+        const cur = getSettings(db)
+        return json(res, saveSettings(db, {
+          ...cur,
+          notifyOnRun: typeof b.notifyOnRun === 'boolean' ? b.notifyOnRun : cur.notifyOnRun,
+          retentionDays: Number.isInteger(b.retentionDays) && (b.retentionDays as number) >= 0 ? (b.retentionDays as number) : cur.retentionDays
+        }))
       }
 
       const verificMatch = path.match(/^\/api\/verificacoes\/(\d+)$/)
