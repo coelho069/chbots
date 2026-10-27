@@ -1,7 +1,5 @@
 Refaça a aba "Grafo" da Memória do CH BOTS no estilo do Graph View do Obsidian (só como referência visual, código 100% nosso). Mostre o plano antes e espere meu OK.
 
-
-
 1\) VISUAL:
 
 \- Fundo escuro liso (#1e1e1e), nós como círculos pequenos e simples, linhas finas cinza semitransparentes.
