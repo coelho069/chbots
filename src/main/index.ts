@@ -26,13 +26,14 @@ import { OfficeIpc } from './officeIpc'
 import { listAgents } from './db/repos/agents'
 import { insertPage, updatePage } from './db/repos/pages'
 import { insertDraft, updateDraftStatus } from './db/repos/drafts'
-import { startApiServer } from './api'
+import { startApiServer, type ApiControl } from './api'
 import { VerificadorService } from './verificador'
 
 const devServerUrl = process.env.ELECTRON_RENDERER_URL
 const iconPath = join(__dirname, '../../resources/icon.png')
 
 let mainWindow: BrowserWindow | null = null
+let apiControl: ApiControl | undefined
 let tray: Tray | null = null
 let quitting = false
 
@@ -390,13 +391,14 @@ if (!app.requestSingleInstanceLock()) {
       promptGen,
       mcpService,
       dataDir,
+      onSettingsChanged: (s) => apiControl?.setEnabled(s.apiEnabled),
       getWindow: () => mainWindow,
       isTrustedUrl,
       resolveDraft: (draftId, approve) => draftResolvers.get(draftId)?.(approve),
       verificador
     })
 
-    startApiServer({ db, secrets, createClient })
+    apiControl = startApiServer({ db, secrets, createClient })
     createAppMenu()
     mainWindow = createWindow(db)
     officeIpc.setWindow(mainWindow)

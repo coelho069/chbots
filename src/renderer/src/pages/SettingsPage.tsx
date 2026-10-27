@@ -30,13 +30,16 @@ export function SettingsPage({ providers, onProvidersChanged }: Props) {
   const [form, setForm] = useState<ProviderInput>(emptyProvider())
   const [removeKey, setRemoveKey] = useState(false)
   const [settings, setSettings] = useState<Settings | null>(null)
+  const [localIps, setLocalIps] = useState<string[]>([])
+  const [showToken, setShowToken] = useState(false)
   const [dataDir, setDataDir] = useState('')
   const [perfStats, setPerfStats] = useState<CacheStats | null>(null)
   const [claudeModel, setClaudeModel] = useState('')
 
   useEffect(() => {
-    Promise.all([api.settings.get(), api.settings.dataDir(), api.perf.stats()])
-      .then(([s, dir, stats]) => {
+    Promise.all([api.settings.get(), api.settings.dataDir(), api.perf.stats(), api.settings.localIps()])
+      .then(([s, dir, stats, ips]) => {
+        setLocalIps(ips)
         setSettings(s)
         setClaudeModel(s.claudeCodeModel)
         setDataDir(dir)
@@ -351,13 +354,28 @@ export function SettingsPage({ providers, onProvidersChanged }: Props) {
 
       {settings?.apiToken && (
         <section className="card">
-          <h2>Acesso móvel</h2>
-          <p className="muted small">Token para o app Android. Nunca compartilhe.</p>
-          <div className="row" style={{ gap: 8, marginTop: 8, alignItems: 'center' }}>
-            <input readOnly value={settings.apiToken} className="mono" style={{ flex: 1, fontSize: 12 }} />
-            <button onClick={() => void navigator.clipboard.writeText(settings.apiToken)}>Copiar</button>
-          </div>
-          <p className="muted small">IP para o celular: use 100.x.x.x (Tailscale) ou o IP local da rede.</p>
+          <h2>Acesso pelo celular</h2>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={settings.apiEnabled}
+              onChange={(e) => void updateSettings({ apiEnabled: e.target.checked })}
+            />
+            Permitir que o app Android acesse este computador (porta 3111)
+          </label>
+          {settings.apiEnabled && (
+            <>
+              <p className="muted small">
+                Endereço: {localIps.length > 0 ? localIps.map((ip) => `http://${ip}:3111`).join(' · ') : 'nenhuma rede encontrada'}
+              </p>
+              <p className="muted small">Token do app Android. Nunca compartilhe.</p>
+              <div className="row" style={{ gap: 8, marginTop: 8, alignItems: 'center' }}>
+                <input readOnly value={showToken ? settings.apiToken : '•'.repeat(24)} className="mono" style={{ flex: 1, fontSize: 12 }} />
+                <button onClick={() => setShowToken((v) => !v)}>{showToken ? 'Ocultar' : 'Mostrar'}</button>
+                <button onClick={() => void navigator.clipboard.writeText(settings.apiToken)}>Copiar</button>
+              </div>
+            </>
+          )}
         </section>
       )}
     </div>

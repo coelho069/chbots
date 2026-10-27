@@ -29,6 +29,7 @@ export const channels = {
   settingsGet: 'settings:get',
   settingsUpdate: 'settings:update',
   settingsDataDir: 'settings:data-dir',
+  settingsLocalIps: 'settings:local-ips',
   settingsOpenDataDir: 'settings:open-data-dir',
   settingsBackup: 'settings:backup',
   settingsTestOllama: 'settings:test-ollama',

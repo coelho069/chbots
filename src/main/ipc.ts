@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { rmSync } from 'node:fs'
+import { networkInterfaces } from 'node:os'
 import { join } from 'node:path'
 import { writeFile } from 'node:fs/promises'
 import { dialog, ipcMain, shell, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
@@ -7,6 +8,7 @@ import cron from 'node-cron'
 import { z } from 'zod'
 import { defaultNodeData, nodeRef, validateGraph, type FlowSaveInput } from '@shared/flows'
 import { channels } from '@shared/ipc'
+import type { Settings } from '@shared/types'
 import {
   agentInput,
   flowMetaInput,
@@ -95,6 +97,7 @@ export interface IpcContext {
   promptGen: PromptGenerator
   mcpService: McpService
   dataDir: string
+  onSettingsChanged: (settings: Settings) => void
   getWindow: () => BrowserWindow | null
   isTrustedUrl: (url: string) => boolean
   resolveDraft: (draftId: number, approve: boolean) => void
@@ -311,7 +314,9 @@ export function registerIpc(ctx: IpcContext): void {
     const parsed = settingsInput.parse(input)
     const existing = getSettings(db)
     // preserve apiToken: the renderer never sees/sends it, so always keep the stored value
-    return saveSettings(db, { ...existing, ...parsed, apiToken: existing.apiToken })
+    const saved = saveSettings(db, { ...existing, ...parsed, apiToken: existing.apiToken, apiEnabled: parsed.apiEnabled ?? existing.apiEnabled })
+    ctx.onSettingsChanged(saved)
+    return saved
   })
 
   // ---- Caixa-Preta ----
@@ -551,6 +556,9 @@ export function registerIpc(ctx: IpcContext): void {
   })
 
   handle(channels.settingsDataDir, () => ctx.dataDir)
+  handle(channels.settingsLocalIps, () =>
+    Object.values(networkInterfaces()).flatMap((list) => (list ?? []).filter((i) => i.family === 'IPv4' && !i.internal).map((i) => i.address))
+  )
   handle(channels.settingsOpenDataDir, async () => {
     await shell.openPath(ctx.dataDir)
   })

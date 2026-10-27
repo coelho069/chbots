@@ -47,7 +47,13 @@ function checkAuth(req: IncomingMessage, token: string): boolean {
   return token !== '' && req.headers.authorization === `Bearer ${token}`
 }
 
-export function startApiServer(deps: ApiDeps): void {
+export interface ApiControl {
+  setEnabled(on: boolean): void
+}
+
+const API_PORT = 3111
+
+export function startApiServer(deps: ApiDeps): ApiControl {
   const { db, secrets, createClient, flowRunner } = deps
   const initial = getSettings(db)
   if (initial.apiToken === '') saveSettings(db, { ...initial, apiToken: randomUUID() })
@@ -238,7 +244,18 @@ export function startApiServer(deps: ApiDeps): void {
     }
   })
 
-  server.listen(3111, '0.0.0.0', () => {
-    console.log('API server listening on 0.0.0.0:3111')
-  })
+  // Sem este handler, EADDRINUSE (porta ocupada) viraria exceção não tratada no processo principal.
+  server.on('error', (err: NodeJS.ErrnoException) => console.error(`[API] falha na porta ${API_PORT}: ${err.code ?? err.message}`))
+
+  const setEnabled = (on: boolean): void => {
+    if (on && !server.listening) {
+      server.listen(API_PORT, '0.0.0.0', () => console.log(`[API] escutando em 0.0.0.0:${API_PORT}`))
+    } else if (!on && server.listening) {
+      server.close()
+      server.closeAllConnections()
+      console.log('[API] desligada')
+    }
+  }
+  setEnabled(initial.apiEnabled)
+  return { setEnabled }
 }

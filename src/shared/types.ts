@@ -170,13 +170,15 @@ export interface Settings {
   notifyOnRun: boolean
   retentionDays: number
   apiToken: string
+  // liga/desliga a API HTTP (porta 3111) usada pelo app do celular
+  apiEnabled: boolean
   // modelo do Ollama usado pelo Claude Code local (ferramenta claude_code)
   claudeCodeModel: string
   // tempo limite do Claude Code local, em minutos
   claudeCodeTimeoutMin: number
 }
 
-export const defaultSettings: Settings = { minimizeToTray: true, notifyOnRun: true, retentionDays: 30, apiToken: '', claudeCodeModel: 'qwen2.5:0.5b', claudeCodeTimeoutMin: 15 }
+export const defaultSettings: Settings = { minimizeToTray: true, notifyOnRun: true, retentionDays: 30, apiToken: '', apiEnabled: true, claudeCodeModel: 'qwen2.5:0.5b', claudeCodeTimeoutMin: 15 }
 
 // ---- Cache / Desempenho ----
 
@@ -407,6 +409,7 @@ export interface PilotosApi {
     get(): Promise<Settings>
     update(input: Settings): Promise<Settings>
     dataDir(): Promise<string>
+    localIps(): Promise<string[]>
     openDataDir(): Promise<void>
     backup(): Promise<string | null>
     testOllama(): Promise<string>

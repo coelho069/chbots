@@ -53,6 +53,7 @@ const api: PilotosApi = {
     get: () => invoke(c.settingsGet),
     update: (input) => invoke(c.settingsUpdate, input),
     dataDir: () => invoke(c.settingsDataDir),
+    localIps: () => invoke(c.settingsLocalIps),
     openDataDir: () => invoke(c.settingsOpenDataDir),
     backup: () => invoke(c.settingsBackup),
     testOllama: () => invoke(c.settingsTestOllama)

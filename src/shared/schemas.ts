@@ -204,6 +204,7 @@ export const settingsInput = z.object({
   notifyOnRun: z.boolean(),
   retentionDays: z.number().int().min(1).max(3650).default(30),
   apiToken: z.string().optional(),
+  apiEnabled: z.boolean().optional(),
   claudeCodeModel: z.string().trim().regex(/^[\w.:/][\w.:/-]*$/, 'Modelo inválido').max(100).optional(),
   claudeCodeTimeoutMin: z.number().int().min(1).max(120).optional()
 })
