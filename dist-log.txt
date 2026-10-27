@@ -1,0 +1,96 @@
+
+> ch-bots@0.4.0 dist
+> node scripts/fix-build.cjs
+
+[36mvite v6.4.5 [32mbuilding SSR bundle for production...[36m[39m
+transforming...
+[32m✓[39m 53 modules transformed.
+rendering chunks...
+[2mout/main/[22m[36mindex.js  [39m[1m[2m149.88 kB[22m[1m[22m
+[32m✓ built in 6.54s[39m
+[36mvite v6.4.5 [32mbuilding SSR bundle for production...[36m[39m
+transforming...
+[32m✓[39m 2 modules transformed.
+rendering chunks...
+[2mout/preload/[22m[36mindex.js  [39m[1m[2m8.42 kB[22m[1m[22m
+[32m✓ built in 136ms[39m
+[36mvite v6.4.5 [32mbuilding for production...[36m[39m
+transforming...
+[32m✓[39m 1114 modules transformed.
+[33mGenerated an empty chunk: "vendor-react".[39m
+rendering chunks...
+[2m../../out/renderer/[22m[32mindex.html                        [39m[1m[2m  0.58 kB[22m[1m[22m
+[2m../../out/renderer/[22m[35massets/index-Cm0PbohW.css         [39m[1m[2m 20.41 kB[22m[1m[22m
+[2m../../out/renderer/[22m[35massets/FlowsPage-Bu-sUYpa.css     [39m[1m[2m 25.70 kB[22m[1m[22m
+[2m../../out/renderer/[22m[36massets/vendor-react-l0sNRNKZ.js   [39m[1m[2m  0.00 kB[22m[1m[22m
+[2m../../out/renderer/[22m[36massets/hooks-C2kQnPlo.js          [39m[1m[2m  0.36 kB[22m[1m[22m
+[2m../../out/renderer/[22m[36massets/types-D3tAI7C1.js          [39m[1m[2m  0.50 kB[22m[1m[22m
+[2m../../out/renderer/[22m[36massets/PagesPage-jLhsNauf.js      [39m[1m[2m  0.84 kB[22m[1m[22m
+[2m../../out/renderer/[22m[36massets/schedule-YSdk67yu.js       [39m[1m[2m  1.28 kB[22m[1m[22m
+[2m../../out/renderer/[22m[36massets/RunsPage-CwHRncTJ.js       [39m[1m[2m  2.20 kB[22m[1m[22m
+[2m../../out/renderer/[22m[36massets/BlackBoxPage-Q-doZYwu.js   [39m[1m[2m  2.92 kB[22m[1m[22m
+[2m../../out/renderer/[22m[36massets/PromptGenPage-B_DJiIeD.js  [39m[1m[2m  6.59 kB[22m[1m[22m
+[2m../../out/renderer/[22m[36massets/RoutinesPage-DLZqeGnJ.js   [39m[1m[2m  7.19 kB[22m[1m[22m
+[2m../../out/renderer/[22m[36massets/SettingsPage-DSUzuhJF.js   [39m[1m[2m  7.85 kB[22m[1m[22m
+[2m../../out/renderer/[22m[36massets/McpPage-CoJQCdIS.js        [39m[1m[2m  8.77 kB[22m[1m[22m
+[2m../../out/renderer/[22m[36massets/MemoryPage-BSNSLb8t.js     [39m[1m[2m  9.95 kB[22m[1m[22m
+[2m../../out/renderer/[22m[36massets/OfficePage-D6mF-9HF.js     [39m[1m[2m 11.43 kB[22m[1m[22m
+[2m../../out/renderer/[22m[36massets/MemoryGraph-xyT4sG-W.js    [39m[1m[2m 19.46 kB[22m[1m[22m
+[2m../../out/renderer/[22m[36massets/FlowsPage-DB0hBQG9.js      [39m[1m[2m 99.05 kB[22m[1m[22m
+[2m../../out/renderer/[22m[36massets/vendor-d3-CRwx5tGL.js      [39m[1m[2m131.55 kB[22m[1m[22m
+[2m../../out/renderer/[22m[36massets/vendor-xyflow-CG8DPDu0.js  [39m[1m[2m194.01 kB[22m[1m[22m
+[2m../../out/renderer/[22m[36massets/index-74mu3arW.js          [39m[1m[2m258.64 kB[22m[1m[22m
+[32m✓ built in 16.73s[39m
+patch-bundle: ok — nenhum fileURLToPath no bundle (dependências externalizadas)
+  • electron-builder  version=26.18.0 os=10.0.26300
+  • loaded configuration  file=package.json ("build" field)
+  • author is missed in the package.json  appPackageFile=D:\teste\pilotos\package.json
+  • executing @electron/rebuild  electronVersion=45.0.0 arch=x64 buildFromSource=false workspaceRoot=D:\teste\pilotos projectDir=./ appDir=./
+  • installing native dependencies  arch=x64
+  • completed installing native dependencies
+  • packaging       platform=win32 arch=x64 electron=45.0.0 appOutDir=dist\win-unpacked
+  • downloaded      label=electron progress=100%
+  • downloaded electron zip extracted successfully  output=D:\teste\pilotos\dist\win-unpacked
+  • searching for node modules  pm=npm searchDir=D:\teste\pilotos
+  • duplicate dependency references  dependencies=["p-queue@6.6.2","@langchain/core@1.3.0","@langchain/core@1.3.0","@langchain/core@1.3.0","express@5.3.0","debug@4.4.3","http-errors@2.0.1","iconv-lite@0.7.3","on-finished@2.4.2","qs@6.16.1","raw-body@3.0.2","type-is@2.1.0","debug@4.4.3","on-finished@2.4.2","get-intrinsic@1.3.0","call-bind-apply-helpers@1.0.2","call-bind-apply-helpers@1.0.2","es-object-atoms@1.1.2","call-bound@1.0.4","get-intrinsic@1.3.0","side-channel-map@1.0.1","debug@4.4.3","debug@4.4.3","http-errors@2.0.1","on-finished@2.4.2","send@1.2.1","http-errors@2.0.1"]
+  ⨯ dist2\win-unpacked\resources\app.asar: file size can not be larger than 4.2GB  failedTask=build stackTrace=Error: dist2\win-unpacked\resources\app.asar: file size can not be larger than 4.2GB
+    at Filesystem.insertFile (D:\teste\pilotos\node_modules\@electron\asar\src\filesystem.ts:147:13)
+    at handleFile (D:\teste\pilotos\node_modules\@electron\asar\src\asar.ts:275:27)
+    at next (D:\teste\pilotos\node_modules\@electron\asar\src\asar.ts:311:11)
+    at next (D:\teste\pilotos\node_modules\@electron\asar\src\asar.ts:313:12)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at AsarPackager.executeElectronAsar (D:\teste\pilotos\node_modules\app-builder-lib\src\asar\asarUtil.ts:89:5)
+    at AsarPackager.pack (D:\teste\pilotos\node_modules\app-builder-lib\src\asar\asarUtil.ts:76:5)
+    at D:\teste\pilotos\node_modules\app-builder-lib\src\platformPackager.ts:543:11
+    at async Promise.all (index 0)
+    at AsyncTaskManager.awaitTasks (D:\teste\pilotos\node_modules\builder-util\src\asyncTaskManager.ts:65:25)
+    at WinPackager.doPack (D:\teste\pilotos\node_modules\app-builder-lib\src\platformPackager.ts:313:5)
+    at WinPackager.pack (D:\teste\pilotos\node_modules\app-builder-lib\src\platformPackager.ts:167:5)
+    at Packager.doBuild (D:\teste\pilotos\node_modules\app-builder-lib\src\packager.ts:539:11)
+    at executeFinally (D:\teste\pilotos\node_modules\builder-util\src\promise.ts:12:14)
+    at Packager.build (D:\teste\pilotos\node_modules\app-builder-lib\src\packager.ts:459:31)
+    at executeFinally (D:\teste\pilotos\node_modules\builder-util\src\promise.ts:12:14)
+node:child_process:981
+    throw err;
+    ^
+
+Error: Command failed: C:\Program Files\nodejs\node.exe D:\teste\pilotos\node_modules\electron-builder\cli.js --win nsis --publish never
+    at genericNodeError (node:internal/errors:986:15)
+    at wrappedFn (node:internal/errors:540:14)
+    at checkExecSyncError (node:child_process:942:11)
+    at execFileSync (node:child_process:978:15)
+    at run (D:\teste\pilotos\scripts\fix-build.cjs:9:3)
+    at Object.<anonymous> (D:\teste\pilotos\scripts\fix-build.cjs:14:1)
+    at Module._compile (node:internal/modules/cjs/loader:1929:14)
+    at Object..js (node:internal/modules/cjs/loader:2060:10)
+    at Module.load (node:internal/modules/cjs/loader:1651:32)
+    at Module._load (node:internal/modules/cjs/loader:1443:12) {
+  status: 1,
+  signal: null,
+  output: [ null, null, null ],
+  pid: 5364,
+  stdout: null,
+  stderr: null
+}
+
+Node.js v24.20.0
