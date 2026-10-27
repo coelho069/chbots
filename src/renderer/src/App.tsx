@@ -8,6 +8,9 @@ import { ChatPage } from './pages/ChatPage'
 import { ToastProvider, useToast } from './toast'
 import type { AgentDraft } from './pages/PromptGenPage'
 
+// Detect if we are running in the web version
+const isWeb = (window as unknown as { pilotosWeb?: boolean }).pilotosWeb === true
+
 // Heavy pages loaded lazily to reduce initial bundle parse time
 const FlowsPage    = lazy(() => import('./flows/FlowsPage').then((m) => ({ default: m.FlowsPage })))
 const BlackBoxPage = lazy(() => import('./pages/BlackBoxPage').then((m) => ({ default: m.BlackBoxPage })))
@@ -30,7 +33,7 @@ export interface ChatTarget {
   conversationId: number | null
 }
 
-const nav: { page: Page; label: string; icon: string; shortLabel: string }[] = [
+const baseNav: { page: Page; label: string; icon: string; shortLabel: string }[] = [
   { page: 'chat',      label: 'Chat',               icon: '✉', shortLabel: 'Chat'    },
   { page: 'promptgen', label: 'Gerador de Prompts',  icon: '✍', shortLabel: 'Gerador' },
   { page: 'agents',    label: 'Agentes',             icon: '☺', shortLabel: 'Agentes' },
@@ -42,9 +45,10 @@ const nav: { page: Page; label: string; icon: string; shortLabel: string }[] = [
   { page: 'memory',   label: 'Memória',              icon: '🧠', shortLabel: 'Memória' },
   { page: 'mcp',       label: 'MCP',                  icon: '⬡', shortLabel: 'MCP'     },
   { page: 'pages',     label: 'Pages',               icon: '🗒', shortLabel: 'Pages'   },
-  { page: 'access',    label: 'Central de acesso',   icon: '🔑', shortLabel: 'Acesso'  },
-  { page: 'settings',  label: 'Configurações',       icon: '⚙', shortLabel: 'Config.' },
 ]
+
+// In web mode we hide the Central de acesso entry
+const nav = isWeb ? baseNav : [...baseNav, { page: 'access', label: 'Central de acesso', icon: '🔑', shortLabel: 'Acesso' }]
 
 interface TabBarProps {
   tabs: Page[]
@@ -154,6 +158,11 @@ function Shell() {
     if (!loaded) return
     const p = location.hash.replace('#/', '')
     const target = nav.find((n) => n.page === p)
+    if (isWeb && target?.page === 'access') {
+      // In web mode, hide the Access page; redirect to home
+      navigate(homePage)
+      return
+    }
     if (target) navigate(target.page)
   }, [loaded]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -332,7 +341,7 @@ function Shell() {
             {page === 'memory' && <MemoryPage />}
             {page === 'mcp' && <McpPage />}
             {page === 'pages' && <PagesPage onOpen={setOpenPage} />}
-            {page === 'access' && <AccessPage onNavigate={navigate} />}
+            {!isWeb && page === 'access' && <AccessPage onNavigate={navigate} />}
             {page === 'settings' && (
               <SettingsPage providers={providers} onProvidersChanged={reloadProviders} />
             )}

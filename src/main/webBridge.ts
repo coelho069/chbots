@@ -10,7 +10,9 @@ const clients = new Set<ServerResponse>()
 // Funções que abrem diálogos/pastas no desktop ou mexem em segurança/atualização: não valem para quem está no navegador.
 export const DESKTOP_ONLY = new Set<string>([
   c.promptsSaveMd, c.mcpImport, c.settingsOpenDataDir, c.settingsBackup, c.appAskUnsaved,
-  c.updateApply, c.accessNewToken, c.accessDisconnect, c.accessRestartWeb
+  c.updateApply, c.accessNewToken, c.accessDisconnect, c.accessRestartWeb,
+  // Block all access channels on the web
+  c.accessInfo, c.accessDevices
 ])
 
 export function broadcast(channel: string, payload?: unknown): void {
