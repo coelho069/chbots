@@ -72,6 +72,25 @@ async function boot(): Promise<void> {
   // Diálogo nativo vira confirm(); 'save' não existe no navegador.
   api.app.askUnsaved = async () => (confirm('Há alterações não salvas. Descartar?') ? 'discard' : 'cancel')
   window.pilotos = api
+  watchVersion()
+}
+
+// Rodapé com a versão e recarga automática quando o servidor sobe uma versão nova (após "Atualizar agora").
+function watchVersion(): void {
+  const foot = document.createElement('div')
+  foot.style.cssText = 'position:fixed;right:6px;bottom:2px;font:11px monospace;opacity:.6;pointer-events:none'
+  document.body.appendChild(foot)
+  let cur = ''
+  const tick = async (): Promise<void> => {
+    try {
+      const v = (await (await fetch('/api/version', { cache: 'no-store' })).json()) as { version: string; commit: string }
+      const id = v.version + ' · ' + v.commit
+      if (cur && cur !== id) { location.reload(); return }
+      cur = id; foot.textContent = 'v' + id
+    } catch { /* servidor reiniciando: tenta de novo */ }
+  }
+  void tick()
+  setInterval(() => void tick(), 30000)
 }
 
 // No Electron o preload já criou window.pilotos; no navegador, main.tsx só renderiza depois disto.

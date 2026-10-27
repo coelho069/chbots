@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
 import {
   defaultBaseUrls,
@@ -8,7 +8,10 @@ import {
   type Provider,
   type ProviderInput,
   type ProviderKind,
-  type Settings
+  type Settings,
+  type AppVersion,
+  type UpdateCheck,
+  type UpdateStatus
 } from '@shared/types'
 import { api } from '../api'
 import { useToast } from '../toast'
@@ -24,6 +27,45 @@ const emptyProvider = (kind: ProviderKind = 'openai'): ProviderInput => ({
   baseUrl: defaultBaseUrls[kind],
   apiKey: undefined
 })
+
+function UpdateSection() {
+  const [ver, setVer] = useState<AppVersion | null>(null)
+  const [check, setCheck] = useState<UpdateCheck | null>(null)
+  const [st, setSt] = useState<UpdateStatus | null>(null)
+  const [busy, setBusy] = useState(false)
+  const timer = useRef<ReturnType<typeof setInterval>>(undefined)
+  useEffect(() => { void api.update.version().then(setVer); return () => clearInterval(timer.current) }, [])
+
+  async function search() {
+    setBusy(true)
+    try { setCheck(await api.update.check()) } catch (e) { setCheck({ behind: 0, commits: [], error: String(e) }) }
+    setBusy(false)
+  }
+  async function apply() {
+    await api.update.apply()
+    timer.current = setInterval(() => {
+      // com a conexão caindo no reinício, mantém o último log na tela
+      void api.update.status().then((s) => { setSt(s); if (!s.running) clearInterval(timer.current) }).catch(() => {})
+    }, 1000)
+  }
+
+  return (
+    <section className="card">
+      <h2>Atualização</h2>
+      <p className="muted small mono">{ver ? `v${ver.version} · ${ver.commit}` : '…'}</p>
+      <div className="actions">
+        <button disabled={busy || st?.running} onClick={() => void search()}>Buscar atualização</button>
+        {check && check.behind > 0 && !st && <button onClick={() => void apply()}>Atualizar agora</button>}
+      </div>
+      {check?.error && <p className="small" style={{ color: '#c00' }}>{check.error}</p>}
+      {check && !check.error && (check.behind === 0
+        ? <p className="muted small">Já está atualizado.</p>
+        : <p className="small">{check.behind} {check.behind === 1 ? 'commit novo' : 'commits novos'}:<br />{check.commits.join(' · ')}</p>)}
+      {st && <pre className="small mono" style={{ whiteSpace: 'pre-wrap', maxHeight: 240, overflow: 'auto' }}>{st.log.join('\n')}</pre>}
+      {st?.error && <p className="small" style={{ color: '#c00' }}>Falhou: {st.error}</p>}
+    </section>
+  )
+}
 
 export function SettingsPage({ providers, onProvidersChanged }: Props) {
   const toast = useToast()
@@ -349,6 +391,8 @@ export function SettingsPage({ providers, onProvidersChanged }: Props) {
           </div>
         </section>
       )}
+
+      <UpdateSection />
 
       <section className="card">
         <h2>Dados</h2>

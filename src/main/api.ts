@@ -15,6 +15,7 @@ import { ChatService } from './services/chat'
 import { WEB_UI } from './webui'
 import { readFile } from 'node:fs/promises'
 import { join, extname, normalize } from 'node:path'
+import { getVersion } from './updater'
 import { webHandlers, addEventClient, DESKTOP_ONLY } from './webBridge'
 
 const RENDERER_DIR = join(__dirname, '../renderer')
@@ -26,7 +27,9 @@ async function serveStatic(res: ServerResponse, path: string): Promise<boolean> 
   if (rel.includes('..')) return false
   try {
     const body = await readFile(join(RENDERER_DIR, rel))
-    res.writeHead(200, { 'Content-Type': MIME[extname(rel)] ?? 'application/octet-stream' })
+    // index.html sempre revalidado; assets têm hash no nome, então podem ficar em cache para sempre
+    const cache = rel.split('\\').join('/').startsWith('/assets/') ? 'public, max-age=31536000, immutable' : 'no-cache'
+    res.writeHead(200, { 'Content-Type': MIME[extname(rel)] ?? 'application/octet-stream', 'Cache-Control': cache })
     res.end(body)
     return true
   } catch {
@@ -103,6 +106,7 @@ export function startApiServer(deps: ApiDeps): ApiControl {
         res.end(WEB_UI)
         return
       }
+      if (method === 'GET' && path === '/api/version') return json(res, getVersion())
       if (method === 'GET' && path === '/api/ping') {
         json(res, { ok: true })
         return

@@ -53,6 +53,12 @@ export function buildApi(invoke: Invoke, subscribe: Subscribe): PilotosApi {
       backup: () => invoke(c.settingsBackup),
       testOllama: () => invoke(c.settingsTestOllama)
     },
+    update: {
+      version: () => invoke(c.updateVersion),
+      check: () => invoke(c.updateCheck),
+      apply: () => invoke(c.updateApply),
+      status: () => invoke(c.updateStatus)
+    },
     app: {
       askUnsaved: (detail, canSave) => invoke(c.appAskUnsaved, detail, canSave),
       onCloseCurrent: (listener) => subscribe<void>(events.closeCurrent, () => listener())

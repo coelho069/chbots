@@ -364,6 +364,10 @@ export interface MemorySaveInput {
   dateFonte?: string | null; trecho?: string | null; confianca?: number
 }
 
+export interface AppVersion { version: string; commit: string }
+export interface UpdateCheck { behind: number; commits: string[]; error?: string }
+export interface UpdateStatus { running: boolean; log: string[]; error: string | null; done: boolean }
+
 export interface PilotosApi {
   providers: {
     list(): Promise<Provider[]>
@@ -413,6 +417,12 @@ export interface PilotosApi {
     openDataDir(): Promise<void>
     backup(): Promise<string | null>
     testOllama(): Promise<string>
+  }
+  update: {
+    version(): Promise<AppVersion>
+    check(): Promise<UpdateCheck>
+    apply(): Promise<void>
+    status(): Promise<UpdateStatus>
   }
   perf: {
     stats(): Promise<CacheStats>
