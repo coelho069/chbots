@@ -113,4 +113,8 @@ function watchVersion(): void {
 }
 
 // No Electron o preload já criou window.pilotos; no navegador, main.tsx só renderiza depois disto.
+// Marca pilotosWeb sincronamente: App.tsx lê isWeb no momento em que o módulo é avaliado,
+// antes de ready.then() disparar. Como main.tsx importa webShim antes de App, esta linha
+// garante que isWeb === true quando App.tsx for parseado pelo bundler.
+if (!window.pilotos) (window as unknown as { pilotosWeb: boolean }).pilotosWeb = true
 export const ready: Promise<void> = window.pilotos ? Promise.resolve() : boot()
