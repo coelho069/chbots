@@ -1,3 +1,4 @@
+import { webHandlers, broadcast } from './webBridge'
 import { ipcMain, type BrowserWindow } from 'electron'
 import type { BotDeskState, OfficeEvent } from '@shared/office'
 
@@ -40,8 +41,9 @@ export class OfficeIpc {
 
   private flush(): void {
     this.timer = null
-    if (!this.win || this.buffer.length === 0) { this.buffer = []; return }
-    this.win.webContents.send('escritorio:evento', this.buffer)
+    if (this.buffer.length === 0) return
+    broadcast('escritorio:evento', this.buffer)
+    if (this.win) this.win.webContents.send('escritorio:evento', this.buffer)
     this.buffer = []
   }
 
@@ -51,6 +53,8 @@ export class OfficeIpc {
   }
 
   registerHandlers(): void {
-    ipcMain.handle('escritorio:getEstado', () => Array.from(this.desks.values()))
+    const getEstado = (): unknown => Array.from(this.desks.values())
+    webHandlers.set('escritorio:getEstado', getEstado)
+    ipcMain.handle('escritorio:getEstado', getEstado)
   }
 }

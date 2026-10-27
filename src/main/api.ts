@@ -13,6 +13,26 @@ import { listPages, getPage } from './db/repos/pages'
 import { getSettings, saveSettings } from './db/repos/settings'
 import { ChatService } from './services/chat'
 import { WEB_UI } from './webui'
+import { readFile } from 'node:fs/promises'
+import { join, extname, normalize } from 'node:path'
+import { webHandlers, addEventClient, DESKTOP_ONLY } from './webBridge'
+
+const RENDERER_DIR = join(__dirname, '../renderer')
+const MIME: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json', '.woff2': 'font/woff2', '.woff': 'font/woff', '.map': 'application/json' }
+
+// Serve o build do renderer (a mesma interface do desktop); sem auth, são só arquivos estáticos.
+async function serveStatic(res: ServerResponse, path: string): Promise<boolean> {
+  const rel = normalize(decodeURIComponent(path === '/' ? '/index.html' : path))
+  if (rel.includes('..')) return false
+  try {
+    const body = await readFile(join(RENDERER_DIR, rel))
+    res.writeHead(200, { 'Content-Type': MIME[extname(rel)] ?? 'application/octet-stream' })
+    res.end(body)
+    return true
+  } catch {
+    return false
+  }
+}
 
 export interface ApiDeps {
   db: Db
@@ -77,7 +97,8 @@ export function startApiServer(deps: ApiDeps): ApiControl {
     }
 
     try {
-      if (method === 'GET' && path === '/') {
+      if (method === 'GET' && path !== '/lite' && !path.startsWith('/api/') && (await serveStatic(res, path))) return
+      if (method === 'GET' && path === '/lite') {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
         res.end(WEB_UI)
         return
@@ -89,6 +110,17 @@ export function startApiServer(deps: ApiDeps): ApiControl {
       if (!checkAuth(req, getSettings(db).apiToken)) {
         error(res, 'Unauthorized', 401)
         return
+      }
+
+      // Ponte do renderer web: mesmos handlers do IPC do desktop + eventos por SSE
+      if (method === 'GET' && path === '/api/events') return addEventClient(res)
+      if (method === 'POST' && path === '/api/ipc') {
+        const b = (await parseBody(req)) as { channel?: unknown; args?: unknown }
+        const ch = typeof b.channel === 'string' ? b.channel : ''
+        const fn = webHandlers.get(ch)
+        if (!fn) return error(res, 'Canal desconhecido', 404)
+        if (DESKTOP_ONLY.has(ch)) return error(res, 'Indisponível no navegador (função do desktop)', 400)
+        return json(res, { result: (await fn(...(Array.isArray(b.args) ? b.args : []))) ?? null })
       }
 
       // GET /api/agents

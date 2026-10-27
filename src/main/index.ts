@@ -15,6 +15,7 @@ import { PromptGenerator } from './services/promptGen'
 import { MemoryService } from './services/memory'
 import { DelegationService } from './services/delegation'
 import { registerIpc } from './ipc'
+import { broadcast } from './webBridge'
 import { createClient } from './llm'
 import { McpService } from './services/mcp'
 import { McpTranslationService } from './services/mcpTranslation'
@@ -43,6 +44,7 @@ function isTrustedUrl(url: string): boolean {
 }
 
 function send(channel: string, payload?: unknown): void {
+  broadcast(channel, payload)
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, payload)
 }
 

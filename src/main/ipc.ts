@@ -3,6 +3,7 @@ import { rmSync } from 'node:fs'
 import { networkInterfaces } from 'node:os'
 import { join } from 'node:path'
 import { writeFile } from 'node:fs/promises'
+import { webHandlers } from './webBridge'
 import { dialog, ipcMain, shell, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
 import cron from 'node-cron'
 import { z } from 'zod'
@@ -111,6 +112,7 @@ export function registerIpc(ctx: IpcContext): void {
 
   // Só a janela do próprio app pode chamar o main.
   const handle = (channel: string, fn: Handler): void => {
+    webHandlers.set(channel, fn) // o navegador passa pelo Bearer do servidor HTTP
     ipcMain.handle(channel, (event: IpcMainInvokeEvent, ...args: unknown[]) => {
       const url = event.senderFrame?.url ?? ''
       if (!ctx.isTrustedUrl(url)) throw new Error('Origem não autorizada')
