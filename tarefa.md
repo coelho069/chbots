@@ -13,7 +13,6 @@ Refaça a aba "Grafo" da Memória do CH BOTS no estilo do Graph View do Obsidian
 \- Animação física contínua e suave (force-directed): os nós se repelem e as ligações puxam, e o grafo "respira" ao se mexer.
 
 
-
 2\) INTERAÇÃO:
 
 \- Passar o mouse num nó: ele e os vizinhos ficam acesos, e o resto escurece (dim).
