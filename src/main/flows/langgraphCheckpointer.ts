@@ -7,6 +7,7 @@
 //   type PendingWrite,
 //   type ChannelVersions
 // } from '@langchain/langgraph'
+import { MemorySaver } from '@langchain/langgraph'
 import type { RunnableConfig } from '@langchain/core/runnables'
 import type { Db } from '../db/connection'
 
@@ -145,4 +146,10 @@ interface WriteRow {
 //   }
 // }
 
-export class SqliteCheckpointer {}
+// shortcut: checkpoints só em memória (somem ao fechar o app e crescem por execução); a execução roda toda no mesmo
+// processo, então basta. Para retomar após reiniciar, restaurar a versão SQLite comentada acima.
+export class SqliteCheckpointer extends MemorySaver {
+  constructor(_db?: Db) {
+    super()
+  }
+}

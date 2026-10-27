@@ -22,24 +22,15 @@ win:
   icon: resources/icon.png
   # Hardening: execução nível mais alto, sem assinatura automática de código
   requestedExecutionLevel: asInvoker
-  verifyInstaller: true
-  orientation: portrait
-  allowElevation: false
-  allowBusyCursor: false
 nsis:
   oneClick: false
+  allowElevation: false
   allowToChangeInstallationDirectory: true
   shortcutName: CH BOTS
   artifactName: CH-BOTS-Setup.exe
   # Sem differential update: não gera .blockmap.
   differentialPackage: false
-  # Hardening: símbolo de segurança nas legends do installer
-  warnWhenUpdating: false
   createDesktopShortcut: always
   createStartMenuShortcut: true
-  createStartMenuFolder: true
-  selectTasks:
-    - createDesktopShortcut
-    - createStartMenuShortcut
 portable:
   artifactName: CH-BOTS-Portable.exe

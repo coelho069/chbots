@@ -5,7 +5,7 @@ import {
   type EngineActions,
   type StepUpdate
 } from './engine'
-import type { FlowGraph, FlowNode, StepStatus } from '@shared/flows'
+import { nodeRef, triggerOf, validateGraph, type FlowGraph, type FlowNode, type StepStatus } from '@shared/flows'
 import type { SqliteCheckpointer } from './langgraphCheckpointer'
 
 const MAX_STEPS = 25
@@ -61,10 +61,23 @@ function withTimeout<T>(seconds: number, cancelSignal: AbortSignal | undefined, 
   })
 }
 
+// Erros que impedem a execução: as regras do editor mais a que o LangGraph exige. Só a Condição pode ter duas saídas;
+// nos demais o grafo liga uma só, e a outra ficaria inalcançável (UNREACHABLE_NODE) ou seria ignorada em silêncio.
+export function graphProblems(graph: FlowGraph): string[] {
+  const outCount = new Map<string, number>()
+  for (const e of graph.edges) outCount.set(e.source, (outCount.get(e.source) ?? 0) + 1)
+  const fanOut = graph.nodes
+    .filter((n) => n.type !== 'condition' && (outCount.get(n.id) ?? 0) > 1)
+    .map((n) => `${nodeRef(graph, n.id)} tem mais de uma saída; o executor só segue uma. Use uma Condição para ramificar.`)
+  return [...validateGraph(graph), ...fanOut]
+}
+
 export async function runWithLangGraph(graph: FlowGraph, opts: LangGraphRunOptions): Promise<{ status: 'ok' | 'error'; error: string | null }> {
   const { flowName, threadId, actions, checkpointer, onStep, onInterrupt, cancelSignal } = opts
 
-  const nodeMap = new Map(graph.nodes.map((n) => [n.id, n]))
+  const problems = graphProblems(graph)
+  if (problems.length > 0) return { status: 'error', error: problems.join(' ') }
+  const trigger = triggerOf(graph)!
 
   // Monta o StateGraph
   const sg = new StateGraph(FlowState)
@@ -83,7 +96,8 @@ export async function runWithLangGraph(graph: FlowGraph, opts: LangGraphRunOptio
       if (isDangerous(node)) {
         const description = `Nó "${nodeType}" está prestes a executar com entrada: "${input.slice(0, 120)}${input.length > 120 ? '…' : ''}"`
         // interrupt() pausa o grafo; retorna o valor de resume quando retomado
-        const approved = interrupt<InterruptValue, boolean>({ nodeId, nodeType, description })
+        // O resume vai num objeto: o LangGraph descarta `resume: false` (checa só se é truthy) e acusa comando vazio.
+        const { approved } = interrupt<InterruptValue, { approved: boolean }>({ nodeId, nodeType, description })
         if (!approved) {
           onStep({ nodeId, status: 'skipped', input, output: 'Rejeitado pelo usuário', error: null })
           return { ultimoResultado: 'Rejeitado pelo usuário', vars: { [nodeId]: 'Rejeitado' }, _activeNodeId: nodeId, _error: 'Rejeitado' }
@@ -117,9 +131,6 @@ export async function runWithLangGraph(graph: FlowGraph, opts: LangGraphRunOptio
   }
 
   // Arestas: START → trigger
-  const trigger = graph.nodes.find((n) => n.type === 'trigger')
-  if (!trigger) return { status: 'error', error: 'Fluxo sem gatilho' }
-
   sg.addEdge(START as '__start__', trigger.id)
 
   // Cria mapa de sucessores por nó
@@ -149,16 +160,13 @@ export async function runWithLangGraph(graph: FlowGraph, opts: LangGraphRunOptio
       if (!pathMap.true) pathMap.true = END
       if (!pathMap.false) pathMap.false = END
       sg.addConditionalEdges(node.id, (state: FlowStateType) => state._branch || 'false', pathMap)
-    } else if (nexts.length === 1) {
-      sg.addEdge(node.id, nexts[0]!.target)
     } else {
-      // Múltiplos sucessores sem condição: pega o primeiro (grafo linear)
       sg.addEdge(node.id, nexts[0]!.target)
     }
   }
 
-  const compiled = sg.compile({ checkpointer, recursionLimit: MAX_STEPS })
-  const config = { configurable: { thread_id: threadId } }
+  const compiled = sg.compile({ checkpointer })
+  const config = { configurable: { thread_id: threadId }, recursionLimit: MAX_STEPS }
 
   let input: FlowStateType | Command = {
     messages: [],
@@ -175,7 +183,7 @@ export async function runWithLangGraph(graph: FlowGraph, opts: LangGraphRunOptio
     let interruptValue: InterruptValue | undefined
 
     // Usa stream para detectar interrupções
-    for await (const chunk of compiled.stream(input, { ...config, streamMode: 'updates' })) {
+    for await (const chunk of await compiled.stream(input, { ...config, streamMode: 'updates' })) {
       const c = chunk as Record<string, unknown>
       if ('__interrupt__' in c) {
         const interrupts = c.__interrupt__ as Array<{ value: unknown }>
@@ -198,7 +206,7 @@ export async function runWithLangGraph(graph: FlowGraph, opts: LangGraphRunOptio
 
     // Aguarda aprovação do usuário
     const approved = await onInterrupt(interruptValue)
-    input = new Command({ resume: approved })
+    input = new Command({ resume: { approved } })
   }
 
   // Busca estado final para checar erros

@@ -13,12 +13,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
     "test:e2e": "electron-vite build && node tests/e2e/flows.e2e.mjs",
-    "predist": "rimraf build-out",
     "dist": "node scripts/fix-build.cjs",
     "postdist": "node -e \"const fs=require('fs'),p=require('path').resolve('build-out/CH-BOTS-Setup.exe'); if(!fs.existsSync(p)){console.error('ERRO: instalador nao encontrado: '+p); process.exit(1)} console.log(p)\""
-  },
-  "build": {
-    "icon": "resources/icon.png"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.1.2",
