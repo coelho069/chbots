@@ -84,10 +84,13 @@ const TabBar = memo(function TabBar({ tabs, active, dirty, onActivate, onClose }
   )
 })
 
+import { UpdateNotice } from './UpdateNotice'
+
 export function App() {
   return (
     <ToastProvider>
       <Shell />
+      <UpdateNotice />
     </ToastProvider>
   )
 }

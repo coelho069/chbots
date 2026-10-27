@@ -16,6 +16,7 @@ import { MemoryService } from './services/memory'
 import { DelegationService } from './services/delegation'
 import { registerIpc } from './ipc'
 import { broadcast } from './webBridge'
+import { setUpdateEmitter } from './updater'
 import { createClient } from './llm'
 import { McpService } from './services/mcp'
 import { McpTranslationService } from './services/mcpTranslation'
@@ -47,6 +48,8 @@ function send(channel: string, payload?: unknown): void {
   broadcast(channel, payload)
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, payload)
 }
+
+setUpdateEmitter(send)
 
 function createWindow(db: Db): BrowserWindow {
   const win = new BrowserWindow({

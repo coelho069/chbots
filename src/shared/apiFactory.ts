@@ -1,6 +1,6 @@
 import { channels as c, events } from './ipc'
 import type { FlowStepEvent } from './flows'
-import type { ChatChunk, DelegationCard, FlowInterruptEvent, McpApprovalRequest, McpToolCallEvent, PageRecord, PilotosApi, SendDraft } from './types'
+import type { ChatChunk, DelegationCard, FlowInterruptEvent, McpApprovalRequest, McpToolCallEvent, PageRecord, PilotosApi, SendDraft, UpdateProgress } from './types'
 import type { OfficeEvent } from './office'
 
 export type Invoke = <T>(channel: string, ...args: unknown[]) => Promise<T>
@@ -57,7 +57,10 @@ export function buildApi(invoke: Invoke, subscribe: Subscribe): PilotosApi {
       version: () => invoke(c.updateVersion),
       check: () => invoke(c.updateCheck),
       apply: () => invoke(c.updateApply),
-      status: () => invoke(c.updateStatus)
+      status: () => invoke(c.updateStatus),
+      last: () => invoke(c.updateLast),
+      ack: () => invoke(c.updateAck),
+      onProgress: (listener) => subscribe<UpdateProgress>(events.updateProgress, listener)
     },
     app: {
       askUnsaved: (detail, canSave) => invoke(c.appAskUnsaved, detail, canSave),

@@ -4,7 +4,7 @@ import { networkInterfaces } from 'node:os'
 import { join } from 'node:path'
 import { writeFile } from 'node:fs/promises'
 import { webHandlers } from './webBridge'
-import { applyUpdate, checkUpdate, getUpdateStatus, getVersion } from './updater'
+import { applyUpdate, checkUpdate, clearLastUpdate, getUpdateStatus, getVersion, takeLastUpdate } from './updater'
 import { dialog, ipcMain, shell, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
 import cron from 'node-cron'
 import { z } from 'zod'
@@ -207,8 +207,10 @@ export function registerIpc(ctx: IpcContext): void {
   // ---- Atualização ----
   handle(channels.updateVersion, () => getVersion())
   handle(channels.updateCheck, () => checkUpdate())
-  handle(channels.updateApply, () => applyUpdate())
+  handle(channels.updateApply, () => applyUpdate(db))
   handle(channels.updateStatus, () => getUpdateStatus())
+  handle(channels.updateLast, () => takeLastUpdate(db))
+  handle(channels.updateAck, () => clearLastUpdate(db))
 
   // ---- Fechar item atual (Ctrl+B) ----
   handle(channels.appAskUnsaved, async (rawDetail, rawCanSave) => {

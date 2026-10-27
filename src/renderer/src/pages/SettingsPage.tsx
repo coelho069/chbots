@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import QRCode from 'qrcode'
 import {
   defaultBaseUrls,
@@ -11,7 +11,7 @@ import {
   type Settings,
   type AppVersion,
   type UpdateCheck,
-  type UpdateStatus
+  type UpdateProgress
 } from '@shared/types'
 import { api } from '../api'
 import { useToast } from '../toast'
@@ -31,10 +31,23 @@ const emptyProvider = (kind: ProviderKind = 'openai'): ProviderInput => ({
 function UpdateSection() {
   const [ver, setVer] = useState<AppVersion | null>(null)
   const [check, setCheck] = useState<UpdateCheck | null>(null)
-  const [st, setSt] = useState<UpdateStatus | null>(null)
   const [busy, setBusy] = useState(false)
-  const timer = useRef<ReturnType<typeof setInterval>>(undefined)
-  useEffect(() => { void api.update.version().then(setVer); return () => clearInterval(timer.current) }, [])
+  const [prog, setProg] = useState<UpdateProgress | null>(null)
+  const [lines, setLines] = useState<string[]>([])
+  const [started, setStarted] = useState(false)
+
+  useEffect(() => {
+    void api.update.version().then(setVer)
+    // abriu a tela com uma atualização já em andamento (ex.: iniciada pelo celular)
+    void api.update.status().then((s) => {
+      if (s.running || s.error) { setStarted(true); setLines(s.log.slice(-30)); setProg({ etapa: s.failedEtapa ?? s.etapa, percent: s.percent, log: '', error: s.error }) }
+    })
+    return api.update.onProgress((p) => {
+      setStarted(true)
+      setProg(p)
+      if (p.log) setLines((l) => [...l.slice(-29), p.log])
+    })
+  }, [])
 
   async function search() {
     setBusy(true)
@@ -42,27 +55,45 @@ function UpdateSection() {
     setBusy(false)
   }
   async function apply() {
+    setLines([])
+    setProg({ etapa: 'Iniciando', percent: 0, log: '', error: null })
+    setStarted(true)
     await api.update.apply()
-    timer.current = setInterval(() => {
-      // com a conexão caindo no reinício, mantém o último log na tela
-      void api.update.status().then((s) => { setSt(s); if (!s.running) clearInterval(timer.current) }).catch(() => {})
-    }, 1000)
   }
+
+  const failed = !!prog?.error
+  const running = started && !failed && (prog?.percent ?? 0) < 100
 
   return (
     <section className="card">
       <h2>Atualização</h2>
       <p className="muted small mono">{ver ? `v${ver.version} · ${ver.commit}` : '…'}</p>
       <div className="actions">
-        <button disabled={busy || st?.running} onClick={() => void search()}>Buscar atualização</button>
-        {check && check.behind > 0 && !st && <button onClick={() => void apply()}>Atualizar agora</button>}
+        <button disabled={busy || running} onClick={() => void search()}>Buscar atualização</button>
+        {check && check.behind > 0 && !started && <button onClick={() => void apply()}>Atualizar agora</button>}
+        {failed && <button onClick={() => void apply()}>Tentar de novo</button>}
       </div>
       {check?.error && <p className="small" style={{ color: '#c00' }}>{check.error}</p>}
       {check && !check.error && (check.behind === 0
         ? <p className="muted small">Já está atualizado.</p>
         : <p className="small">{check.behind} {check.behind === 1 ? 'commit novo' : 'commits novos'}:<br />{check.commits.join(' · ')}</p>)}
-      {st && <pre className="small mono" style={{ whiteSpace: 'pre-wrap', maxHeight: 240, overflow: 'auto' }}>{st.log.join('\n')}</pre>}
-      {st?.error && <p className="small" style={{ color: '#c00' }}>Falhou: {st.error}</p>}
+      {prog && (
+        <>
+          <p className="small" style={{ margin: '8px 0 4px', color: failed ? '#c00' : undefined }}>
+            {failed ? `Falhou em “${prog.etapa}”` : prog.etapa} — {prog.percent}%
+          </p>
+          <div style={{ height: 10, background: '#ddd', borderRadius: 5, overflow: 'hidden' }}>
+            <div style={{ width: `${prog.percent}%`, height: '100%', background: failed ? '#d33' : '#2d6cdf', transition: 'width .3s' }} />
+          </div>
+          {failed && <p className="small" style={{ color: '#c00' }}>{prog.error}</p>}
+          <details>
+            <summary className="small">Log</summary>
+            <div className="small mono" style={{ maxHeight: 200, overflow: 'auto', whiteSpace: 'pre-wrap' }}>
+              {lines.map((l, i) => <div key={i}>{l}</div>)}
+            </div>
+          </details>
+        </>
+      )}
     </section>
   )
 }

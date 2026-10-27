@@ -166,6 +166,8 @@ export interface PromptGenResult {
 }
 
 export interface Settings {
+  // JSON de LastUpdate gravado antes de reiniciar na atualização; vazio quando não há aviso pendente
+  lastUpdate: string
   minimizeToTray: boolean
   notifyOnRun: boolean
   retentionDays: number
@@ -178,7 +180,7 @@ export interface Settings {
   claudeCodeTimeoutMin: number
 }
 
-export const defaultSettings: Settings = { minimizeToTray: true, notifyOnRun: true, retentionDays: 30, apiToken: '', apiEnabled: true, claudeCodeModel: 'qwen2.5:0.5b', claudeCodeTimeoutMin: 15 }
+export const defaultSettings: Settings = { minimizeToTray: true, notifyOnRun: true, retentionDays: 30, apiToken: '', apiEnabled: true, claudeCodeModel: 'qwen2.5:0.5b', claudeCodeTimeoutMin: 15, lastUpdate: '' }
 
 // ---- Cache / Desempenho ----
 
@@ -366,7 +368,17 @@ export interface MemorySaveInput {
 
 export interface AppVersion { version: string; commit: string }
 export interface UpdateCheck { behind: number; commits: string[]; error?: string }
-export interface UpdateStatus { running: boolean; log: string[]; error: string | null; done: boolean }
+export interface UpdateStatus {
+  running: boolean
+  log: string[]
+  error: string | null
+  done: boolean
+  etapa: string
+  percent: number
+  failedEtapa: string | null
+}
+export interface UpdateProgress { etapa: string; percent: number; log: string; error: string | null }
+export interface LastUpdate { commitAntigo: string; commitNovo: string; versao: string; data: string; commits: string[] }
 
 export interface PilotosApi {
   providers: {
@@ -423,6 +435,9 @@ export interface PilotosApi {
     check(): Promise<UpdateCheck>
     apply(): Promise<void>
     status(): Promise<UpdateStatus>
+    last(): Promise<LastUpdate | null>
+    ack(): Promise<void>
+    onProgress(listener: (p: UpdateProgress) => void): () => void
   }
   perf: {
     stats(): Promise<CacheStats>

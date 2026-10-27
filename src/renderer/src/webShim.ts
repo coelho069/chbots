@@ -2,6 +2,7 @@
 import { buildApi, type Invoke, type Subscribe } from '@shared/apiFactory'
 
 const TK = 'tk'
+const UPD = 'updated'
 const store = (op: () => string | null | void): string => { try { return (op() as string) ?? '' } catch { return '' } }
 const token = (): string => store(() => localStorage.getItem(TK))
 
@@ -73,6 +74,20 @@ async function boot(): Promise<void> {
   api.app.askUnsaved = async () => (confirm('Há alterações não salvas. Descartar?') ? 'discard' : 'cancel')
   window.pilotos = api
   watchVersion()
+  announceUpdate()
+}
+
+// Depois do reload por versão nova: aviso rápido na página do celular.
+function announceUpdate(): void {
+  const commit = store(() => localStorage.getItem(UPD))
+  if (!commit) return
+  store(() => localStorage.removeItem(UPD))
+  const b = document.createElement('div')
+  b.textContent = 'Atualizado para commit ' + commit
+  b.style.cssText = 'position:fixed;left:8px;right:8px;top:8px;z-index:9999;padding:12px;border-radius:8px;background:#1a7f37;color:#fff;font:15px system-ui'
+  b.onclick = () => b.remove()
+  document.body.appendChild(b)
+  setTimeout(() => b.remove(), 8000)
 }
 
 // Rodapé com a versão e recarga automática quando o servidor sobe uma versão nova (após "Atualizar agora").
@@ -85,7 +100,7 @@ function watchVersion(): void {
     try {
       const v = (await (await fetch('/api/version', { cache: 'no-store' })).json()) as { version: string; commit: string }
       const id = v.version + ' · ' + v.commit
-      if (cur && cur !== id) { location.reload(); return }
+      if (cur && cur !== id) { store(() => localStorage.setItem(UPD, v.commit)); location.reload(); return }
       cur = id; foot.textContent = 'v' + id
     } catch { /* servidor reiniciando: tenta de novo */ }
   }

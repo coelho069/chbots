@@ -36,6 +36,8 @@ export const channels = {
   updateCheck: 'update:check',
   updateApply: 'update:apply',
   updateStatus: 'update:status',
+  updateLast: 'update:last',
+  updateAck: 'update:ack',
   settingsTestOllama: 'settings:test-ollama',
   promptsCorrect: 'prompts:correct',
   promptsGenerate: 'prompts:generate',
@@ -132,5 +134,6 @@ export const events = {
   escritorioEvento: 'escritorio:evento',
   pageOpen: 'page:open',
   draftPending: 'draft:pending',
-  verificacoesUpdated: 'verificacoes:updated'
+  verificacoesUpdated: 'verificacoes:updated',
+  updateProgress: 'update:progress'
 } as const
