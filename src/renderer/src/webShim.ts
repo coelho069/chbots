@@ -26,7 +26,7 @@ function askToken(): Promise<string> {
   })
 }
 
-if (!window.pilotos) {
+async function boot(): Promise<void> {
   let tk = token()
   if (!(await check(tk))) tk = await askToken()
   const auth = (): Record<string, string> => ({ Authorization: 'Bearer ' + tk, 'Content-Type': 'application/json' })
@@ -73,3 +73,6 @@ if (!window.pilotos) {
   api.app.askUnsaved = async () => (confirm('Há alterações não salvas. Descartar?') ? 'discard' : 'cancel')
   window.pilotos = api
 }
+
+// No Electron o preload já criou window.pilotos; no navegador, main.tsx só renderiza depois disto.
+export const ready: Promise<void> = window.pilotos ? Promise.resolve() : boot()

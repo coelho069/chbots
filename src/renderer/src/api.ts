@@ -1,4 +1,7 @@
-export const api = window.pilotos
+import type { PilotosApi } from '@shared/types'
+
+// Lazy: este módulo pode carregar antes do webShim criar window.pilotos (chunks separados).
+export const api: PilotosApi = new Proxy({} as PilotosApi, { get: (_t, k) => window.pilotos[k as keyof PilotosApi] })
 
 // O Electron embrulha erros do main em "Error invoking remote method 'x': Error: ...".
 export function errorMessage(err: unknown): string {

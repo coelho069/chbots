@@ -21,6 +21,7 @@ export default defineConfig({
     plugins: [react()],
     build: {
       minify: 'esbuild',
+      target: 'es2019',
       rollupOptions: {
         output: {
           manualChunks: {
