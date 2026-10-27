@@ -9,15 +9,17 @@ button.on{background:#2d6cdf}main{padding:12px}
 .item{padding:12px;margin:8px 0;background:#1b1b1b;border-radius:8px;overflow-wrap:anywhere}
 .u{background:#243a63}.err{color:#f88}small{color:#999}
 #msgs{min-height:40vh}#send{display:flex;gap:6px}#send input{flex:1}
-</style></head><body><div id="app"></div><script>
-const $=document.getElementById('app'),tk=()=>{try{return localStorage.getItem('tk')||''}catch{return ''}}
+</style></head><body><div id="app"><main><h2>CH BOTS</h2><input type="password" placeholder="Cole o token" style="width:100%;box-sizing:border-box"><p><button type="button">Entrar</button></p><p id="boot"><small>Carregando… (precisa de JavaScript)</small></p></main></div>
+<script>window.onerror=function(m,s,l,c){var d=document.createElement('pre');d.style.cssText='color:#f55;white-space:pre-wrap;padding:12px';d.textContent='ERRO: '+m+' @'+l+':'+c;document.body.appendChild(d)}</script>
+<script>
+const $=document.getElementById('app'),tk=()=>{try{return localStorage.getItem('tk')||''}catch(_){return ''}}
 const el=(t,p,...k)=>{const e=document.createElement(t);Object.assign(e,p||{});e.append(...k);return e}
 async function api(p,o={}){const r=await fetch(p,{...o,headers:{...o.headers,'Content-Type':'application/json',Authorization:'Bearer '+tk()}})
 if(r.status===401){localStorage.removeItem('tk');login();throw new Error('401')}
 if(!r.ok)throw new Error((await r.json().catch(()=>({}))).error||r.status);return r}
 const get=async p=>(await api(p)).json()
 function login(){const i=el('input',{type:'password',placeholder:'Cole o token',style:'width:100%;box-sizing:border-box'})
-$.replaceChildren(el('main',0,el('h2',0,'CH BOTS'),i,el('p'),el('button',{textContent:'Entrar',onclick:async()=>{localStorage.setItem('tk',i.value.trim());try{await get('/api/agents');shell()}catch{}}})))}
+$.replaceChildren(el('main',0,el('h2',0,'CH BOTS'),i,el('p'),el('button',{textContent:'Entrar',onclick:async()=>{localStorage.setItem('tk',i.value.trim());try{await get('/api/agents');shell()}catch(_){}}})))}
 const tabs={Agentes:agents,Fluxos:flows,Rotinas:routines,'Execuções':runs,'Memória':mem}
 function shell(){const m=el('main'),h=el('header');
 for(const n in tabs)h.append(el('button',{textContent:n,onclick:e=>{[...h.children].forEach(b=>b.classList.remove('on'));e.target.classList.add('on');m.replaceChildren();tabs[n](m).catch(x=>m.append(el('p',{className:'err',textContent:String(x)})))}}))
