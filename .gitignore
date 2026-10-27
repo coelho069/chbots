@@ -9,3 +9,9 @@ dist/
 *.db
 *.sqlite
 build-out*/
+
+build-out*/
+dist/
+dist2/
+*.7z
+*.exe
